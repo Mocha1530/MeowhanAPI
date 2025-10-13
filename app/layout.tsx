@@ -7,7 +7,6 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Meowhan API',
   description: 'Any helpful tools',
-  generator: 'v0.dev',
 }
 
 export default function RootLayout({
@@ -28,6 +27,7 @@ html {
       </head>
       <body>
         {children}
+        <Analytics />
       </body>
     </html>
   )
