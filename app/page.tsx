@@ -100,7 +100,7 @@ export default function Converter() {
   }
 
   return (
-    <div className="container max-w-3xl mx-auto py-10 px-5">
+    <div className="container max-w-[800px] mx-auto py-10 px-5">
       <Tabs defaultValue="image" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="image" className="flex items-center gap-2">
