@@ -102,7 +102,7 @@ export default function Converter() {
   return (
     <div className="container max-w-[800px] mx-auto py-10 px-5">
       <Tabs defaultValue="image" className="w-full">
-        <TabsList className="grid overflow-x-auto w-full grid-cols-2">
+        <TabsList className="grid overflow-x-auto w-full grid-flow-col auto-cols-[minmax(400px,1fr)]">
           <TabsTrigger value="image" className="flex items-center gap-2">
             <ImageIcon className="h-4 w-4" />
             Image to Data URI
