@@ -63,7 +63,7 @@ export async function getImageData(imageUrl: string): Promise<{
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const dimensions = await probeImageSize(buffer);
+    const dimensions = await probeImageSize.sync(buffer);
 
     return {
       width: dimensions.width,
