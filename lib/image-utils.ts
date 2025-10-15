@@ -1,5 +1,6 @@
 "use server"
 import probeImageSize from 'probe-image-size';
+import sharp from 'sharp';
 
 /**
  * Converts an image URL to a base64-encoded data URI
@@ -76,6 +77,134 @@ export async function getImageData(imageUrl: string): Promise<{
     console.error("Error extracting image data:", error);
     throw {
       error: error instanceof Error ? error.message : "Unknown error occurred"
+    };
+  }
+}
+
+// Types for position options
+type HorizontalPosition = 'left' | 'center' | 'right';
+type VerticalPosition = 'top' | 'center' | 'bottom';
+type WatermarkPosition = `${VerticalPosition}-${HorizontalPosition}`;
+
+/**
+ * Watermark an image with another image
+ */
+export async function addWatermark(
+  imageUrl: string,
+  watermarkUrl: string,
+  position: WatermarkPosition = 'center-center',
+  size: number = 20
+): Promise<{
+  success: boolean;
+  imageBuffer?: Buffer;
+  dimensions?: string;
+  size?: number;
+  error?: string;
+}> {
+  try {
+    if (size <= 0 || size > 100) {
+      throw new Error('Size must be between 1 and 100 percent');
+    }
+    
+    const [imageResponse, watermarkResponse] = await Promise.all([
+      fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Image-Watermark-API/1.0)',
+          'Accept': 'image/*',
+        },
+        signal: AbortSignal.timeout(30000),
+      }),
+      fetch(watermarkUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Image-Watermark-API/1.0)',
+          'Accept': 'image/*',
+        },
+        signal: AbortSignal.timeout(30000),
+      }),
+    ]);
+
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch main image: ${imageResponse.status} ${imageResponse.statusText}`);
+    }
+    if (!watermarkResponse.ok) {
+      throw new Error(`Failed to fetch watermark image: ${watermarkResponse.status} ${watermarkResponse.statusText}`);
+    }
+
+    const [imageBuffer, watermarkBuffer] = await Promise.all([
+      imageResponse.arrayBuffer().then(ab => Buffer.from(ab)),
+      watermarkResponse.arrayBuffer().then(ab => Buffer.from(ab)),
+    ]);
+
+    const imageDimensions = await probeImageSize.sync(imageBuffer);
+    const watermarkDimensions = await probeImageSize.sync(watermarkBuffer);
+
+    if (!imageDimensions || !watermarkDimensions) {
+      throw new Error('Could not determine image dimensions');
+    }
+
+    const watermarkWidth = Math.round(imageDimensions.width * (size / 100));
+    const watermarkHeight = Math.round(
+      (watermarkDimensions.height / watermarkDimensions.width) * watermarkWidth
+    );
+
+    const [vertical, horizontal] = position.split('-') as [VerticalPosition, HorizontalPosition];
+    
+    let left: number;
+    let top: number;
+
+    switch (horizontal) {
+      case 'left':
+        left = 10;
+        break;
+      case 'right':
+        left = imageDimensions.width - watermarkWidth - 10;
+        break;
+      case 'center':
+      default:
+        left = Math.round((imageDimensions.width - watermarkWidth) / 2);
+        break;
+    }
+    
+    switch (vertical) {
+      case 'top':
+        top = 10;
+        break;
+      case 'bottom':
+        top = imageDimensions.height - watermarkHeight - 10;
+        break;
+      case 'center':
+      default:
+        top = Math.round((imageDimensions.height - watermarkHeight) / 2);
+        break;
+    }
+
+    const watermarkedImage = await sharp(imageBuffer)
+      .composite([
+        {
+          input: await sharp(watermarkBuffer)
+            .resize(watermarkWidth, watermarkHeight, {
+              fit: 'contain',
+              background: { r: 0, g: 0, b: 0, alpha: 0 }
+            })
+            .toBuffer(),
+          left: Math.max(0, left),
+          top: Math.max(0, top),
+        }
+      ])
+      .png()
+      .toBuffer();
+
+    return {
+      success: true,
+      imageBuffer: watermarkedImage,
+      dimensions: "${imageDimensions.width}x${imageDimensions.height}",
+      size: watermarkedImage.length
+    };
+  } catch (error) {
+    console.error('Error adding watermark:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     };
   }
 }
