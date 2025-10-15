@@ -197,7 +197,7 @@ export async function addWatermark(
     return {
       success: true,
       imageBuffer: watermarkedImage,
-      dimensions: "${imageDimensions.width}x${imageDimensions.height}",
+      dimensions: `${imageDimensions.width}x${imageDimensions.height}`,
       size: watermarkedImage.length
     };
   } catch (error) {
