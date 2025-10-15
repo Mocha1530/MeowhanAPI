@@ -29,9 +29,11 @@ async function uploadToImageHosting(imageBuffer: Buffer, filename: string = 'wat
     }
 
     const result = await response.json();
-	console.log('ImgChest API response:', JSON.stringify(result, null, 2));
-    
-    return result.images[0].link || result.link;
+	/*console.log('ImgChest API response:', JSON.stringify(result, null, 2));
+    *return result.images[0].link || result.link;
+	lol wrong notation*/
+
+	return result.data.images[0].link || result.data.link;
   } catch (error) {
     console.error('Image hosting failed:', error);
     throw new Error('Failed to upload image to hosting service');
