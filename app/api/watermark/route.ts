@@ -6,6 +6,12 @@ import { addWatermark } from "@/lib/image-utils";
  */
 async function uploadToImageHosting(imageBuffer: Buffer, filename: string = 'watermarked-image.png'): Promise<string> {
   try {
+	const auth = process.env.imgChest;
+    
+    if (!auth) {
+      throw new Error('ImgChest Auth Token is not configured');
+    }
+	  
     const formData = new FormData();
     const blob = new Blob([imageBuffer], { type: 'image/png' });
     formData.append('images[]', blob, filename);
@@ -14,7 +20,7 @@ async function uploadToImageHosting(imageBuffer: Buffer, filename: string = 'wat
       method: 'POST',
       body: formData,
       headers: {
-        'Authorization': `Bearer ${process.env.imgChest}`
+        'Authorization': `Bearer ${auth}`
       }
     });
 
@@ -23,6 +29,7 @@ async function uploadToImageHosting(imageBuffer: Buffer, filename: string = 'wat
     }
 
     const result = await response.json();
+	console.log('ImgChest API response:', JSON.stringify(result, null, 2));
     
     return result.images[0].link || result.link;
   } catch (error) {
