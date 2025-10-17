@@ -5,7 +5,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get("username");
-    let tiktokConnection;
     
     if (!username) {
       return NextResponse.json(
@@ -17,7 +16,7 @@ export async function GET(request: NextRequest) {
       )
     };
 
-    tiktokConnection = new WebcastPushConnection(username, {
+    const tiktokConnection = new WebcastPushConnection(username, {
       enableExtendedGiftInfo: true,
       enableWebsocketUpgrade: true,
       requestPollingIntervalMs: 1000,
@@ -29,14 +28,11 @@ export async function GET(request: NextRequest) {
       requestOptions: {},
       websocketOptions: {},
     });
-    console.log({session: process.env.sessionId, ttTargetIdc: process.env.ttTargetIdc});
     
-    tiktokConnection.getRoomInfo().then(roomInfo => {
-      return NextResponse.json(
-        { success: true },
-        roomInfo,
-      )
-    });
+    const response = await tiktokConnection.getRoomInfo();
+    return NextResponse.json(
+      { success: true, data: response }
+    );
   } catch (error) {
     console.error("TikTokAPI error:", error)
     return NextResponse.json(
