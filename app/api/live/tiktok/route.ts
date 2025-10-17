@@ -18,8 +18,15 @@ export async function GET(request: NextRequest) {
     }
 
     tiktokConnection = new WebcastPushConnection(username, {
+      enableExtendedGiftInfo: true,
+      enableWebsocketUpgrade: true,
+      requestPollingIntervalMs: 1000,
       sessionId: process.env.sessionId,
-      ttTargetIdc: process.env.ttTargetIdc,
+      clientParams: {},
+      requestHeaders: {},
+      websocketHeaders: {},
+      requestOptions: {},
+      websocketOptions: {},
     })
     console.log({session: process.env.sessionId, ttTargetIdc: process.env.ttTargetIdc})
     
