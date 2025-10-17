@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       )
     })
   } catch (error) {
-    console.error("TikTokAPI error:" error)
+    console.error("TikTokAPI error:", error)
     return NextResponse.json(
       { success: false },
       { status: 500 },
