@@ -5,6 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const username = searchParams.get("username")
+    let tiktokConnection
     
     if (!username) {
       return NextResponse.json(
@@ -16,12 +17,13 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const con = new WebcastPushConnection(username, {
+    tiktokConnection = new WebcastPushConnection(username, {
       sessionId: process.env.sessionId,
       ttTargetIdc: process.env.ttTargetIdc,
     })
+    console.log({session: process.env.sessionId, ttTargetIdc: process.env.ttTargetIdc})
     
-    con.getRoomInfo().then(roomInfo => {
+    tiktokConnection.getRoomInfo().then(roomInfo => {
       return NextResponse.json(
         { success: true },
         roomInfo,
