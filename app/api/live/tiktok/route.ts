@@ -1,20 +1,26 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { WebcastPushConnection } from 'tiktok-live-connector';
-import { put } from '@vercel/blob';
+import { put, head } from '@vercel/blob';
 import sharp from 'sharp';
 
 export async function getCoverImage(imageUrl: string, username: string): Promise<string> {
   try { 
+    const filename =  `MEOW_${username}_livecover.jpg`;
     const response = await fetch(imageUrl);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
     }
+
+    try {
+      const isBlob = await head(filename);
+      return isBlob.url;
+    } catch (error) {
+    }
        
     const contentType = response.headers.get("content-type") || "image/jpeg";
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const filename =  `MEOW_${username}_livecover.jpg`;
     
     const background = await sharp(buffer)
       .resize(1920, 1080, { fit: 'cover' })
@@ -89,10 +95,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { 
         success: true,
-        data: response.roomInfo,
-        cover_image: coverImage, 
-      }
-    );
+        data: {
+          ...response.roomInfo,
+          cover_image: coverImage,
+        }
+      });
   } catch (error) {
     switch (error.message) {
       case 'LIVE has ended':
