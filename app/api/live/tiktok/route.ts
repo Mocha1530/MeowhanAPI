@@ -36,10 +36,38 @@ export async function GET(request: NextRequest) {
       { success: true, data: response.roomInfo }
     );
   } catch (error) {
-    console.error("TikTokAPI error:", error)
-    return NextResponse.json(
-      { success: false },
-      { status: 500 },
-    )
-  };
-};
+    switch (error.message) {
+      case 'LIVE has ended':
+        return NextResponse.json(
+          { 
+            success: false,
+            error: 'LIVE has ended'
+          },
+          { 
+            status: 400,
+            statusText: 'Offline Error'
+          }
+        );
+      case 'User is offline':
+        return NextResponse.json(
+          { 
+            success: false,
+            error: 'User is offline'
+          },
+          { 
+            status: 400,
+            statusText: 'Offline Error'
+          }
+        );
+      default:
+        console.error("TikTokAPI error:", error)
+        return NextResponse.json(
+          { 
+            success: false,
+            error: 'Unknown error'
+          },
+          { status: 500 }
+        );
+    }
+  }
+}
