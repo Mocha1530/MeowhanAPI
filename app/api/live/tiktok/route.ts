@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     };
 
     const tiktokConnection = new WebcastPushConnection(username, {
+      fetchRoomInfoOnConnect: true,
       enableExtendedGiftInfo: true,
       enableWebsocketUpgrade: true,
       requestPollingIntervalMs: 1000,
@@ -28,10 +29,11 @@ export async function GET(request: NextRequest) {
       requestOptions: {},
       websocketOptions: {},
     });
+
+    const response = await tiktokConnection.connect()
     
-    const response = await tiktokConnection.getRoomInfo();
     return NextResponse.json(
-      { success: true, data: response }
+      { success: true, data: response.roomInfo }
     );
   } catch (error) {
     console.error("TikTokAPI error:", error)
