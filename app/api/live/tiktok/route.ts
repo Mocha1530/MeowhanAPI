@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { WebcastPushConnection } from 'tiktok-live-connector';
 
 export async function GET(request: NextRequest) {
+  let tiktokConnection;
+  
   try {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get("username");
@@ -10,13 +12,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Username is required",
+          error: 'Username is required',
         },
         { status: 400 },
-      )
-    };
+      );
+    }
 
-    const tiktokConnection = new WebcastPushConnection(username, {
+    tiktokConnection = new WebcastPushConnection(username, {
       fetchRoomInfoOnConnect: true,
       enableExtendedGiftInfo: true,
       enableWebsocketUpgrade: true,
@@ -43,10 +45,7 @@ export async function GET(request: NextRequest) {
             success: false,
             error: 'LIVE has ended'
           },
-          { 
-            status: 400,
-            statusText: 'Offline Error'
-          }
+          { status: 400 }
         );
       case 'User is offline':
         return NextResponse.json(
@@ -54,10 +53,7 @@ export async function GET(request: NextRequest) {
             success: false,
             error: 'User is offline'
           },
-          { 
-            status: 400,
-            statusText: 'Offline Error'
-          }
+          { status: 400 }
         );
       default:
         console.error("TikTokAPI error:", error)
@@ -68,6 +64,10 @@ export async function GET(request: NextRequest) {
           },
           { status: 500 }
         );
+    }
+  } finally {
+    if (tiktokConnection) {
+      tiktokConnection.disconnect();
     }
   }
 }
