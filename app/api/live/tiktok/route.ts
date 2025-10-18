@@ -40,6 +40,7 @@ export async function getCoverImage(imageUrl: string): Promise<string> {
 
     const blob = await put(filename, coverBuffer, {
       access: 'public',
+      token: process.env.MEOW_READ_WRITE_TOKEN,
     });
     
     return blob.url;
