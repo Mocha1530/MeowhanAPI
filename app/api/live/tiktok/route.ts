@@ -16,6 +16,7 @@ export async function getCoverImage(imageUrl: string, username: string): Promise
       const isBlob = await head(filename);
       return isBlob.url;
     } catch (error) {
+      console.log("Failed head:", error);
     }
        
     const contentType = response.headers.get("content-type") || "image/jpeg";
