@@ -1,5 +1,56 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { WebcastPushConnection } from 'tiktok-live-connector';
+import { put } from '@vercel/blob';
+import sharp from 'sharp';
+
+export async function getCoverImage(imageUrl: string, username: string): Promise<string> {
+  try { 
+    const response = await fetch(imageUrl);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+       
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const filename =  `MEOW_${username}_livecover.jpg`;
+    
+    const background = await sharp(buffer)
+      .resize(1920, 1080, { fit: 'cover' })
+      .blur(20)
+      .modulate({ brightness: 0.7 })
+      .toBuffer();
+
+    const foreground = await sharp(buffer)
+      .resize(1920, 1080, { fit: 'inside' })
+      .sharpen()
+      .png()
+      .toBuffer();
+
+    const coverBuffer = await sharp(background)
+      .composite([
+        {
+          input: foreground,
+          gravity: 'center'
+        }
+      ])
+      .jpeg()
+      .toBuffer();
+
+    const blob = await put(filename, coverBuffer, {
+      access: 'public',
+      token: process.env.MEOW_READ_WRITE_TOKEN,
+      allowOverwrite: true,
+    });
+    
+    return blob.url;
+  } catch (error) {
+    console.error("Error getting cover:", error);
+    throw error;
+  }
+}
+
 
 export async function GET(request: NextRequest) {
   let tiktokConnection;
@@ -33,9 +84,14 @@ export async function GET(request: NextRequest) {
     });
 
     const response = await tiktokConnection.connect()
+    const coverImage = await getCoverImage(response.roomInfo.cover.url_list[0], username)
     
     return NextResponse.json(
-      { success: true, data: response.roomInfo }
+      { 
+        success: true,
+        data: response.roomInfo,
+        cover_image: coverImage, 
+      }
     );
   } catch (error) {
     switch (error.message) {
