@@ -3,7 +3,7 @@ import { WebcastPushConnection } from 'tiktok-live-connector';
 import { put } from '@vercel/blob';
 import sharp from 'sharp';
 
-export async function getCoverImage(imageUrl: string): Promise<string> {
+export async function getCoverImage(imageUrl: string, username: string): Promise<string> {
   try { 
     const response = await fetch(imageUrl);
 
@@ -14,7 +14,7 @@ export async function getCoverImage(imageUrl: string): Promise<string> {
     const contentType = response.headers.get("content-type") || "image/jpeg";
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const filename =  `MEOW_d430${Date.now()}.jpg`;
+    const filename =  `MEOW_${username}_livecover.jpg`;
     
     const background = await sharp(buffer)
       .resize(1920, 1080, { fit: 'cover' })
@@ -41,6 +41,7 @@ export async function getCoverImage(imageUrl: string): Promise<string> {
     const blob = await put(filename, coverBuffer, {
       access: 'public',
       token: process.env.MEOW_READ_WRITE_TOKEN,
+      allowOverwrite: true,
     });
     
     return blob.url;
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
     });
 
     const response = await tiktokConnection.connect()
-    const coverImage = await getCoverImage(response.roomInfo.cover.url_list[0])
+    const coverImage = await getCoverImage(response.roomInfo.cover.url_list[0], username)
     
     return NextResponse.json(
       { 
