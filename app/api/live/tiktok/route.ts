@@ -13,7 +13,7 @@ export async function getCoverImage(imageUrl: string, username: string): Promise
     }
 
     try {
-      const isBlob = await head(filename);
+      const isBlob = await head(filename, { token: process.env.MEOW_READ_WRITE_TOKEN });
       return isBlob.url;
     } catch (error) {
       console.log("Failed head:", error);
