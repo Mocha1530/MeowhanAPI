@@ -54,7 +54,7 @@ export async function getCoverImage(imageUrl: string, username: string): Promise
     return blob.url;
   } catch (error) {
     console.error("Error getting cover:", error);
-    throw error;
+    return imageUrl;
   }
 }
 
