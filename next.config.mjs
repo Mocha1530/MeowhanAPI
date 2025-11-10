@@ -14,7 +14,9 @@ const nextConfig = {
     if (isServer) {
       config.externals = config.externals || [];
       config.externals.push({
-        'tiktok-live-connector': 'commonjs tiktok-live-connector'
+        'tiktok-live-connector': 'commonjs tiktok-live-connector',
+        'puppeteer-core': 'commonjs puppeteer-core',
+        '@sparticuz/chromium': 'commonjs @sparticuz/chromium'
       });
     } else {
       config.resolve.fallback = {
