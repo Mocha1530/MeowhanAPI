@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import chromium from 'chrome-aws-lambda';
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -15,31 +16,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
   }
 
+  const executablePath = await chromium.executablePath();
   let browser = null;
   
   try {
     browser = await chromium.puppeteer.launch({
-      args: chromium.args,
+      args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
-      headless: chromium.headless,
+      executablePath,
+      headless: true,
       ignoreHTTPSErrors: true,
     });
 
     const page = await browser.newPage();
     
     await page.setViewport({ 
-      width: 1200, 
-      height: 630,
+      width: 1280, 
+      height: 720,
       deviceScaleFactor: 1 
     });
 
     await page.goto(url, { 
       waitUntil: 'networkidle2', 
-      timeout: 10000 
+      timeout: 30000 
     });
 
-    await page.waitForTimeout(2000);
+    //await page.waitForTimeout(2000);
 
     const screenshot = await page.screenshot({
       type: 'jpeg',
@@ -47,10 +49,8 @@ export async function GET(request: NextRequest) {
       fullPage: false,
     });
 
-    // Close browser
     await browser.close();
 
-    // Return the image
     return new NextResponse(screenshot, {
       status: 200,
       headers: {
