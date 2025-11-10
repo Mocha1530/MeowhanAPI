@@ -9,7 +9,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ['tiktok-live-connector'],
+  serverExternalPackages: ['tiktok-live-connector', 'puppeteer-core', '@sparticuz/chromium'],
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals = config.externals || [];
