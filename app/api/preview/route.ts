@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       { timeout: 10000 }
     );
 
-    await page.waitForTimeout(2000);
+    //await page.waitForTimeout(2000);
 
     const screenshot = await page.screenshot({
       type: 'jpeg',
