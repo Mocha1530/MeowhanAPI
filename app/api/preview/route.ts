@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   let browser = null;
   
   try {
-    browser = await chromium.puppeteer.launch({
+    browser = await puppeteer.launch({
       args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
       defaultViewport: chromium.defaultViewport,
       executablePath,
