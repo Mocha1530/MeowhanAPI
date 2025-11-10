@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "MeowhanAPI",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -37,7 +37,7 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
-    "@sparticuz/chromium": "^117.0.0",
+    "@sparticuz/chromium": "^131.0.0",
     "@vercel/analytics": "latest",
     "@vercel/blob": "latest",
     "autoprefixer": "^10.4.20",
@@ -52,7 +52,7 @@
     "next": "15.2.4",
     "next-themes": "latest",
     "probe-image-size": "latest",
-    "puppeteer-core": "^23.0.0",
+    "puppeteer-core": "^22.0.0",
     "react": "^19",
     "react-day-picker": "latest",
     "react-dom": "^19",
