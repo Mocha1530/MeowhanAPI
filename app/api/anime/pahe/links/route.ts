@@ -407,15 +407,29 @@ async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
         waitUntil: 'networkidle2', 
         timeout: 30000 
       });
-    
+
       await page.waitForFunction(
-        () => document.readyState === 'complete',
+        () => {
+          const links = Array.from(document.querySelectorAll('a.redirect'));
+          return links.some(link => 
+            link.href && 
+            link.href.startsWith('https://kwik.cx/f/')
+          );
+        },
         { timeout: 10000 }
       );
   
       html = await page.content();
       const snippet = html.substring(0, 10000);
       console.log(`Puppeteer successful, got ${html.length}: ${snippet}`);
+
+      const realLinks = await page.$$eval('a.redirect', (links) => 
+        links.map(link => ({
+          href: link.href,
+          text: link.textContent?.trim() || ''
+        }))
+      );
+      console.log('Found redirect links:', realLinks);
     } catch (perror) {
       throw new Error(`Failed to fetch pahe.win page: ${perror}`);
     } finally {
