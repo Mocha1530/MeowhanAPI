@@ -83,10 +83,18 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
   }
+
+  const pheaders = { 
+    "Accept": "application/json, text/javascript, */*; q=0.0",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": url,
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+    "Cookie": process.env.PAHE_COOKIE
+  };
   
   try {
     const response = await fetch(url, {
-      headers: process.env.PAHE_HEADERS,
+      headers: pheaders,
       next: { revalidate: 3600 }
     });
 
