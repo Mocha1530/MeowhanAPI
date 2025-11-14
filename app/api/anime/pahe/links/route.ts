@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
 
 function decodeJSStyle(encoded: string, alphabet: string, offset: number, base: number): string {
   let result = '';
@@ -28,9 +30,46 @@ function decodeJSStyle(encoded: string, alphabet: string, offset: number, base: 
 }
 
 async function getDirectKwikLink(kwikUrl: string): Promise<string> {
+  let browser = null;
+  
   try {
-    const response = await fetch(kwikUrl);
-    const html = await response.text();
+    const executablePath = await chromium.executablePath();
+      
+    browser = await puppeteer.launch({
+      args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+      defaultViewport: chromium.defaultViewport,
+      executablePath,
+      headless: true,
+      ignoreHTTPSErrors: true,
+    });
+  
+    const page = await browser.newPage();
+      
+    await page.setViewport({ 
+      width: 1280, 
+      height: 720,
+      deviceScaleFactor: 1 
+    });
+  
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0');
+  
+    await page.goto(url, { 
+      waitUntil: 'networkidle2', 
+      timeout: 30000 
+    });
+  
+    await page.waitForFunction(
+      () => {
+        return document.readyState === 'complete' && document.body != null && 
+              document.querySelector('img[loading="lazy"]') === null;
+      },
+      { timeout: 10000 }
+    );
+
+    const html = await page.content();
+    await browser.close();
+    //const response = await fetch(kwikUrl);
+    //const html = await response.text();
     console.log(html);
     const cleanHtml = html.replace(/(\r\n|\r|\n)/g, '');
     const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
