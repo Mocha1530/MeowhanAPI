@@ -31,6 +31,7 @@ async function getDirectKwikLink(kwikUrl: string): Promise<string> {
   try {
     const response = await fetch(kwikUrl);
     const html = await response.text();
+    console.log(html);
     const cleanHtml = html.replace(/(\r\n|\r|\n)/g, '');
     const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
     const regexP = [
