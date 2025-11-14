@@ -414,7 +414,8 @@ async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
       );
   
       html = await page.content();
-      console.log(`Puppeteer successful, got ${html.length} characters`);
+      const snippet = html.substring(0, 10000);
+      console.log(`Puppeteer successful, got ${html.length}: ${snippet}`);
     } catch (perror) {
       throw new Error(`Failed to fetch pahe.win page: ${perror}`);
     } finally {
