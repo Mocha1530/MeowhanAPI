@@ -53,16 +53,13 @@ async function getDirectKwikLink(kwikUrl: string): Promise<string> {
   
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0');
   
-    await page.goto(url, { 
+    await page.goto(kwikUrl, { 
       waitUntil: 'networkidle2', 
       timeout: 30000 
     });
   
     await page.waitForFunction(
-      () => {
-        return document.readyState === 'complete' && document.body != null && 
-              document.querySelector('img[loading="lazy"]') === null;
-      },
+      () => document.readyState === 'complete',
       { timeout: 10000 }
     );
 
