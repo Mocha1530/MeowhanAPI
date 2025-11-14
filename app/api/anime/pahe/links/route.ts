@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-//import chromium from '@sparticuz/chromium';
-//import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
+import puppeteer from 'puppeteer-core';
 
 const baseAlphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/";
 
