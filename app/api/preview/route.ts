@@ -60,6 +60,9 @@ export async function GET(request: NextRequest) {
       fullPage: false,
     });
 
+    const html = await page.content();
+    console.log(html);
+
     await browser.close();
 
     return new NextResponse(screenshot, {
