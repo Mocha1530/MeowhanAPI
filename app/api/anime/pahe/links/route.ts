@@ -378,6 +378,7 @@ async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
     }
   
     html = await response.text();
+    console.log(`Fetch successful, got ${html.length} characters`);
   } catch (error) {
     let browser = null;
 
@@ -413,6 +414,7 @@ async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
       );
   
       html = await page.content();
+      console.log(`Puppeteer successful, got ${html.length} characters`);
     } catch (perror) {
       throw new Error(`Failed to fetch pahe.win page: ${perror}`);
     } finally {
@@ -445,6 +447,7 @@ async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
     });
   }
 
+  console.log(`Total Kwik links found: ${links.length}`);
   return links;
 }
 
@@ -540,10 +543,13 @@ async function extractAllLinks(html: string) {
   for (const paheLink of paheWinLinks) {
     try {
       const kwikFLinks = await extractKwikFLinks(paheLink.url);
+      console.log(`Found ${kwikFLinks.length} Kwik /f/ links from ${paheLink.url}`);
       
       for (const kwikLink of kwikFLinks) {
+        console.log(`Processing Kwik link: ${kwikLink.url}`);
         try {
           const directUrl = await fetchKwikDirectLink(kwikLink.url);
+          console.log(`Got direct URL: ${directUrl}`);
           allKwikLinks.push({
             ...kwikLink,
             direct_url: directUrl,
