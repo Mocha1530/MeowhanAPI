@@ -534,6 +534,7 @@ function extractPaheWinLinks(html: string): Array<{url: string; text: string}> {
 
 async function extractAllLinks(html: string) {
   const paheWinLinks = extractPaheWinLinks(html);
+  console.log(`Found ${paheWinLinks.length} pahe.win links:`, paheWinLinks);
   const allKwikLinks = [];
 
   for (const paheLink of paheWinLinks) {
