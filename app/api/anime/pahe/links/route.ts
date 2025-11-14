@@ -32,13 +32,65 @@ async function getDirectKwikLink(kwikUrl: string): Promise<string> {
     const response = await fetch(kwikUrl);
     const html = await response.text();
     const cleanHtml = html.replace(/(\r\n|\r|\n)/g, '');
+    const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
     const regexP = [
-      /\(\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+[a-zA-Z]?\s*\)/,
-      /\(\s*'([^',]*)'\s*,\s*(\d+)\s*,\s*'([^',]*)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+[a-zA-Z]?\s*\)/,
-      /decodeJSStyle\s*\(\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+\s*\)/,
+        /\(\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+[a-zA-Z]?\s*\)/,
+        /\(\s*'([^',]*)'\s*,\s*(\d+)\s*,\s*'([^',]*)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+[a-zA-Z]?\s*\)/,
     ];
 
-    let match = null;
+    const scripts = [];
+    let scriptMatch;
+
+    while ((scriptMatch = scriptRegex.exec(html)) !== null) {
+      scripts.push(scriptMatch[1]);
+    }
+    
+    for (const script of scripts) {
+      const cleanScript = script.replace(/(\r\n|\r|\n)/g, '');
+
+      for (const pattern of regexP) {
+        const match = cleanScript.match(pattern);
+        if (match && match[1] && match[1].length > 10) {
+          const encoded = match[1];
+          const alphabet = match[3];
+          const offset = parseInt(match[4]);
+          const base = parseInt(match[5]);
+          const decoded = decodeJSStyle(encoded, alphabet, offset, base);
+          
+          const urlMatch = decoded.match(/"((https?:\/\/kwik\.cx\/[^"]*))"/);
+          const tokenMatch = decoded.match(/name="_token" value="([^"]*)"/);
+          
+          if (urlMatch && tokenMatch) {
+            const postUrl = urlMatch[1];
+            const token = tokenMatch[1];
+            
+            const cookies = response.headers.get('set-cookie') || '';
+            const sessionMatch = cookies.match(/kwik_session=([^;]+)/);
+            const kwikSession = sessionMatch ? sessionMatch[1] : '';
+            
+            const postResponse = await fetch(postUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Cookie': `kwik_session=${kwikSession}`,
+                'Referer': kwikUrl
+              },
+              body: `_token=${token}`,
+              redirect: 'manual'
+            });
+            
+            const location = postResponse.headers.get('location');
+            if (location) {
+              return location;
+            }
+          }
+        }
+      }
+    }
+
+    throw new Error('Could not extract direct link from any script');
+    
+    /*let match = null;
     let usedPattern = -1;
 
     for (let i = 0; i < regexP.length; i++) {
@@ -89,7 +141,7 @@ async function getDirectKwikLink(kwikUrl: string): Promise<string> {
       throw new Error('No redirect location found');
     }
     
-    return location;
+    return location;*/
   } catch (error) {
       throw error;
   }
