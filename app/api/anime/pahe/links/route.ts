@@ -31,30 +31,44 @@ async function getDirectKwikLink(kwikUrl: string): Promise<string> {
   try {
     const response = await fetch(kwikUrl);
     const html = await response.text();
-    
-    const paramRegex = /\(\s*"([^"]*)"\s*,\s*(\d+)\s*,\s*"([^"]*)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+\s*\)/;
-    const match = html.match(paramRegex);
-    
+    const cleanHtml = html.replace(/(\r\n|\r|\n)/g, '');
+    const regexP = [
+      /\(\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+[a-zA-Z]?\s*\)/,
+      /\(\s*'([^',]*)'\s*,\s*(\d+)\s*,\s*'([^',]*)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+[a-zA-Z]?\s*\)/,
+      /decodeJSStyle\s*\(\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*"([^",]*)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+\s*\)/,
+    ];
+
+    let match = null;
+    let usedPattern = -1;
+
+    for (let i = 0; i < regexP.length; i++) {
+      match = cleanHtml.match(regexP[i]);
+      if (match) {
+        usedPattern = i;
+        console.log(`Found encoded parameters with pattern ${i}`);
+        break;
+      }
+    }
+
     if (!match) {
       throw new Error('Could not extract encoded parameters');
     }
-    
-    const [, encoded, , alphabet, offsetStr, baseStr] = match;
-    const offset = parseInt(offsetStr);
-    const base = parseInt(baseStr);
-    
+
+    const encoded = match[1];
+    const alphabet = match[3];
+    const offset = parseInt(match[4]);
+    const base = parseInt(match[5]);
+
     const decoded = decodeJSStyle(encoded, alphabet, offset, base);
-    
     const urlMatch = decoded.match(/"((https?:\/\/kwik\.cx\/[^"]*))"/);
     const tokenMatch = decoded.match(/name="_token" value="([^"]*)"/);
-    
+
     if (!urlMatch || !tokenMatch) {
       throw new Error('Could not extract URL or token from decoded data');
     }
-    
+
     const postUrl = urlMatch[1];
     const token = tokenMatch[1];
-    
     const cookies = response.headers.get('set-cookie') || '';
     const sessionMatch = cookies.match(/kwik_session=([^;]+)/);
     const kwikSession = sessionMatch ? sessionMatch[1] : '';
