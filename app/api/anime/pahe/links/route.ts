@@ -361,12 +361,67 @@ async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
   resolution: string | null;
   fileSize: string | null;
 }>> {
-  const response = await fetch(paheWinUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch pahe.win page: ${response.status}`);
-  }
+  let html: string;
+  try {
+    const response = await fetch(paheWinUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch pahe.win page: ${response.status}`);
+    }
+  
+    html = await response.text();
+  } catch (error) {
+    let browser = null;
 
-  const html = await response.text();
+    try {
+      const executablePath = await chromium.executablePath();
+      
+      browser = await puppeteer.launch({
+        args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+        defaultViewport: chromium.defaultViewport,
+        executablePath,
+        headless: true,
+        ignoreHTTPSErrors: true,
+      });
+    
+      const page = await browser.newPage();
+        
+      await page.setViewport({ 
+        width: 1280, 
+        height: 720,
+        deviceScaleFactor: 1 
+      });
+    
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0');
+    
+      await page.goto(paheWinUrl, { 
+        waitUntil: 'networkidle2', 
+        timeout: 30000 
+      });
+    
+      await page.waitForFunction(
+        () => document.readyState === 'complete',
+        { timeout: 10000 }
+      );
+  
+      html = await page.content();
+    } catch (perror) {
+      throw new Error(`Failed to fetch pahe.win page: ${perror}`);
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
+    }
+  }
+  
   const cleanHtml = html.replace(/(\r\n|\r|\n)/g, '');
 
   const links = [];
@@ -434,7 +489,7 @@ async function extractKwikLinks(html: string) {
   await Promise.all(
     links.map(async (link) => {
       try {
-        link.direct_url = await getDirectKwikLink(link.url);
+        link.direct_url = await fetchKwikDirectLink(link.url);
       } catch (error) {
         console.error(`Failed to get direct URL for ${link.url}:`, error);
       }
