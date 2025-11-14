@@ -319,7 +319,6 @@ function parseLinkText(text: string): {
   
   if (match) {
     const [, sub, resolution, fileSize] = match;
-    // Create a clean label like "SubsPlease · 1080p (143MB)"
     const label = `${sub.trim()} · ${resolution} (${fileSize})`;
     
     return {
@@ -352,7 +351,7 @@ function parseLinkText(text: string): {
   };
 }
 
-async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
+async function extractKwikFLinks(paheWinUrl: string, textContent?: string): Promise<Array<{
   url: string;
   direct_url: string | null;
   text: string;
@@ -420,8 +419,6 @@ async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
       );
   
       html = await page.content();
-      const snippet = html.substring(0, 10000);
-      console.log(`Puppeteer successful, got ${html.length}: ${snippet}`);
 
       const realLinks = await page.$$eval('a.redirect', (links) => 
         links.map(link => ({
@@ -449,7 +446,7 @@ async function extractKwikFLinks(paheWinUrl: string): Promise<Array<{
     const kwikUrl = match[1];
     const rawText = match[2].replace(/<[^>]*>/g, '').trim();
 
-    const { label, sub, resolution, fileSize } = parseLinkText(rawText);
+    const { label, sub, resolution, fileSize } = parseLinkText(textContent);
 
     links.push({
       url: kwikUrl,
@@ -534,7 +531,7 @@ async function extractKwikLinks(html: string) {
 
 function extractPaheWinLinks(html: string): Array<{url: string; text: string}> {
   const links = [];
-  const regex = /<a[^>]*href="(https:\/\/pahe\.win\/[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const regex = /<a[^>]*href="(https:\/\/pahe\.win[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
   let match;
   
   while ((match = regex.exec(html)) !== null) {
@@ -557,7 +554,7 @@ async function extractAllLinks(html: string) {
 
   for (const paheLink of paheWinLinks) {
     try {
-      const kwikFLinks = await extractKwikFLinks(paheLink.url);
+      const kwikFLinks = await extractKwikFLinks(paheLink.url, paheLink.text);
       console.log(`Found ${kwikFLinks.length} Kwik /f/ links from ${paheLink.url}`);
       
       for (const kwikLink of kwikFLinks) {
