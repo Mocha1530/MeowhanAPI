@@ -124,6 +124,7 @@ async function extractKwikLinks(html: string) {
       try {
         link.direct_url = await getDirectKwikLink(link.url);
       } catch (error) {
+        console.error(`Failed to get direct URL for ${link.url}:`, error);
       }
     })
   );
