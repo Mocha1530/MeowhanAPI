@@ -1,6 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-function extractKwikLinks(html: string) {
+function decodeJSStyle(encoded: string, alphabet: string, offset: number, base: number): string {
+  let result = '';
+  
+  for (let i = 0; i < encoded.length; i++) {
+    let segment = '';
+    
+    while (i < encoded.length && encoded[i] !== alphabet[base]) {
+      segment += encoded[i];
+      i++;
+    }
+    
+    let decodedNum = 0;
+    for (let j = 0; j < segment.length; j++) {
+      const char = segment[j];
+      const position = alphabet.indexOf(char);
+      if (position === -1) continue;
+      
+      decodedNum = decodedNum * base + position;
+    }
+    
+    decodedNum -= offset;
+    result += String.fromCharCode(decodedNum);
+  }
+  
+  return result;
+}
+
+async function getDirectKwikLink(kwikUrl: string): Promise<string> {
+  try {
+    const response = await fetch(kwikUrl);
+    const html = await response.text();
+    
+    const paramRegex = /\(\s*"([^"]*)"\s*,\s*(\d+)\s*,\s*"([^"]*)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*\d+\s*\)/;
+    const match = html.match(paramRegex);
+    
+    if (!match) {
+      throw new Error('Could not extract encoded parameters');
+    }
+    
+    const [, encoded, , alphabet, offsetStr, baseStr] = match;
+    const offset = parseInt(offsetStr);
+    const base = parseInt(baseStr);
+    
+    const decoded = decodeJSStyle(encoded, alphabet, offset, base);
+    
+    const urlMatch = decoded.match(/"((https?:\/\/kwik\.cx\/[^"]*))"/);
+    const tokenMatch = decoded.match(/name="_token" value="([^"]*)"/);
+    
+    if (!urlMatch || !tokenMatch) {
+      throw new Error('Could not extract URL or token from decoded data');
+    }
+    
+    const postUrl = urlMatch[1];
+    const token = tokenMatch[1];
+    
+    const cookies = response.headers.get('set-cookie') || '';
+    const sessionMatch = cookies.match(/kwik_session=([^;]+)/);
+    const kwikSession = sessionMatch ? sessionMatch[1] : '';
+    
+    const postResponse = await fetch(postUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': `kwik_session=${kwikSession}`,
+        'Referer': kwikUrl
+      },
+      body: `_token=${token}`,
+      redirect: 'manual'
+    });
+    
+    const location = postResponse.headers.get('location');
+    if (!location) {
+      throw new Error('No redirect location found');
+    }
+    
+    return location;
+  } catch (error) {
+      throw error;
+  }
+}
+
+async function extractKwikLinks(html: string) {
   const links = [];
       
   const buttonRegex = /<button([^>]*data-src="https:\/\/kwik\.cx[^"]*"[^>]*)>([\s\S]*?)<\/button>/gi;
@@ -30,12 +111,22 @@ function extractKwikLinks(html: string) {
     
     links.push({
       url: urlMatch[1],
+      direct_url: null,
       text: label,
       type: 'kwik',
       sub: fansub,
       resolution: resolution
     });
   }
+
+  await Promise.all(
+    links.map(async (link) => {
+      try {
+        link.direct_url = await getDirectKwikLink(link.url);
+      } catch (error) {
+      }
+    })
+  );
     
   const dataSrcRegex = /data-src="(https:\/\/kwik\.cx[^"]*)"/gi;
   const uniqueUrls = new Set(links.map(link => link.url));
@@ -45,6 +136,7 @@ function extractKwikLinks(html: string) {
       uniqueUrls.add(match[1]);
       links.push({
         url: match[1],
+        direct_url: null,
         text: 'Play',
         type: 'kwik'
       });
@@ -103,7 +195,7 @@ export async function GET(request: NextRequest) {
     }
 
     const html = await response.text();
-    const kwikLinks = extractKwikLinks(html);
+    const kwikLinks = await extractKwikLinks(html);
     const paheLinks = extractPaheLinks(html);
 
     return NextResponse.json({
