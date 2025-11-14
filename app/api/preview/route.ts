@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     });
 
     await page.goto(url, { 
-      waitUntil: 'networkidle0', 
+      waitUntil: 'domcontentloaded', 
       timeout: 30000 
     });
 
