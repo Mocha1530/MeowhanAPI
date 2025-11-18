@@ -109,64 +109,58 @@ async function getEpisodeLinks(animeSession: string, episodeSession: string) {
   return links;
 }
 
-async function getAllEpisodes(session: string, malId: string) {
+async function getAllEpisodes(session: string, page: number = 1) {
   let allEpisodes: any[] = [];
-  let currentPage = 1;
-  let lastPage = 1;
-
-  do {
-    const apiUrl = `https://animepahe.si/api?m=release&id=${session}&sort=episode_asc&page=${currentPage}`;
-    const response = await fetch(apiUrl, {
-      headers: {
-        ...pheaders,
-        "Referer": `https://animepahe.si/anime/${session}`,
-        "X-Requested-With": "XMLHttpRequest"
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error! status: ${response.status}`);
+  const apiUrl = `https://animepahe.si/api?m=release&id=${session}&sort=episode_asc&page=${page}`;
+  const response = await fetch(apiUrl, {
+    headers: {
+      ...pheaders,
+      "Referer": `https://animepahe.si/anime/${session}`,
+      "X-Requested-With": "XMLHttpRequest"
     }
+  });
 
-    const data = await response.json();
-    
-    if (currentPage === 1) {
-      lastPage = data.last_page;
-    }
+  if (!response.ok) {
+    throw new Error(`API error! status: ${response.status}`);
+  }
 
-    const episodes = data.data.map((ep: any) => ({
-      episode: ep.episode,
-      session: ep.session,
-      snapshot: ep.snapshot
-    }));
-
-    allEpisodes = [...allEpisodes, ...episodes];
-    currentPage++;
-
-  } while (currentPage <= lastPage);
+  const data = await response.json();
 
   const episodesWithLinks = await Promise.all(
-    allEpisodes.map(async (episode) => {
+    data.data.map(async (ep: any) => {
       try {
-        const links = await getEpisodeLinks(session, episode.session);
+        const links = await getEpisodeLinks(session, ep.session);
         return {
-          ...episode,
+          episode: ep.episode,
+          session: ep.session,
+          snapshot: ep.snapshot,
           links
         };
       } catch (error) {
-        console.error(`Failed to get links for episode ${episode.episode}:`, error);
+        console.error(`Failed to get links for episode ${ep.episode}:`, error);
         return {
-          ...episode,
+          episode: ep.episode,
+          session: ep.session,
+          snapshot: ep.snapshot,
           links: { kwik: [], pahe: [] }
         };
       }
     })
   );
-
-  return episodesWithLinks;
+  
+  return {
+    episodes: episodesWithLinks,
+    pagination: {
+      current_page: page,
+      last_page: data.last_page,
+      total: data.total,
+      has_next: data.current_page < data.last_page,
+      has_prev: page > 1
+    }
+  }
 }
 
-async function getAnime(session: string) {
+async function getAnime(session: string, page: number = 1) {
   const response = await fetch(`https://animepahe.si/anime/${session}`, {
     headers: pheaders,
     next: { revalidate: 3600 }
@@ -184,11 +178,11 @@ async function getAnime(session: string) {
     throw new Error('Could not extract MAL ID from anime page');
   }
 
-  const episodes = await getAllEpisodes(session, malId);
+  const episodes = await getAllEpisodes(session, page);
 
   return {
     mal_id: malId,
-    episodes
+    ...episodes
   };
 }
 
@@ -196,6 +190,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const method = searchParams.get('method');
   const session = searchParams.get('session');
+  const page = searchParams.get('page');
   
   if (!method) {
     return NextResponse.json({ error: 'method parameter is required' }, { status: 400 });
@@ -203,7 +198,12 @@ export async function GET(request: NextRequest) {
   
   try {
     if (method === 'links' && session) {
-      const animeData = await getAnime(session);
+      const pageNum = page ? parseInt(page) : 1;
+      if (isNaN(pageNum) || pageNum < 1) {
+        return NextResponse.json({ error: 'Invalid page number' }, { status: 400 });
+      }
+      
+      const animeData = await getAnime(session, pageNum);
       return NextResponse.json({
         ...animeData
       });
