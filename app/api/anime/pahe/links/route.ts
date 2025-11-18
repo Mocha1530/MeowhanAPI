@@ -149,14 +149,14 @@ async function getAllEpisodes(session: string, page: number = 1) {
   );
   
   return {
-    episodes: episodesWithLinks,
     pagination: {
       current_page: page,
       last_page: data.last_page,
       total: data.total,
       has_next: data.current_page < data.last_page,
       has_prev: page > 1
-    }
+    },
+    episodes: episodesWithLinks
   }
 }
 
