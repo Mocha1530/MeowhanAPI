@@ -132,6 +132,7 @@ async function getAllEpisodes(session: string, page: number = 1) {
         const links = await getEpisodeLinks(session, ep.session);
         return {
           episode: ep.episode,
+          duration: ep.duration,
           session: ep.session,
           snapshot: ep.snapshot,
           links
@@ -140,6 +141,7 @@ async function getAllEpisodes(session: string, page: number = 1) {
         console.error(`Failed to get links for episode ${ep.episode}:`, error);
         return {
           episode: ep.episode,
+          duration: ep.duration,
           session: ep.session,
           snapshot: ep.snapshot,
           links: { kwik: [], pahe: [] }
