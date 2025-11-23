@@ -7,6 +7,13 @@ const pheaders = {
   "Cookie": process.env.PAHE_COOKIE
 };
 
+function getProxiedSnapshotUrl(originalUrl: string): string {
+  if (!originalUrl) return '';
+  
+  const filename = originalUrl.split('/').pop();
+  return filename ? `/api/anime/pahe/snapshots/${filename}` : '';
+}
+
 function extractPaheWinLinks(html: string): Array<{url: string; text: string}> {
   const links = [];
   const regex = /<a[^>]*href="(https:\/\/pahe\.win[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
@@ -134,7 +141,7 @@ async function getAllEpisodes(session: string, page: number = 1) {
           episode: ep.episode,
           duration: ep.duration,
           session: ep.session,
-          snapshot: ep.snapshot,
+          snapshot: getProxiedSnapshotUrl(ep.snapshot) || ep.snapshot,
           links
         };
       } catch (error) {
@@ -143,7 +150,7 @@ async function getAllEpisodes(session: string, page: number = 1) {
           episode: ep.episode,
           duration: ep.duration,
           session: ep.session,
-          snapshot: ep.snapshot,
+          snapshot: getProxiedSnapshotUrl(ep.snapshot) || ep.snapshot,
           links: { kwik: [], pahe: [] }
         };
       }
