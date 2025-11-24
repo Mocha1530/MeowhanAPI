@@ -564,7 +564,7 @@ export async function GET(request: NextRequest) {
       const animeInfo = await getAnimeInfo(mal_id);
       return NextResponse.json(animeInfo, { headers: corsHeaders });
     } else if (method === 'mal_id' && session) {
-      const malId = await getMalIdFromPahe(session);
+      const malId = await getPaheMalId(session);
       
       if (!malId) {
         return NextResponse.json({ 
