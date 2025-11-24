@@ -100,7 +100,12 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       data: enhancedEpisodes,
-      pagination: data.pagination       
+      pagination: {
+        total: data.total,
+        per_page: data.per_page,
+        current_page: data.current_page,
+        last_page: data.last_page
+      }      
     }, { headers: corsHeaders });
     
   } catch (error) {
