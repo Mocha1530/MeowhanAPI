@@ -430,10 +430,10 @@ export async function GET(request: NextRequest) {
       const animeData = await getAnime(session, pageNum);
       return NextResponse.json({
         ...animeData
-      });
+      }, { headers: corsHeaders });
     } else if (method === 'info' && mal_id) {
       const animeInfo = await getAnimeInfo(mal_id);
-      return NextResponse.json(animeInfo);
+      return NextResponse.json(animeInfo, { headers: corsHeaders });
     } else {
       return NextResponse.json({ error: 'Invalid method or missing session' }, { status: 400, headers: corsHeaders });
     }
