@@ -8,6 +8,12 @@ const pheaders = {
   "Cookie": process.env.PAHE_COOKIE
 };
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://meowani.vercel.app',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 const MONGODB_URI = process.env.MEOW_MONGODB_URI!;
 const DB_NAME = process.env.MEOW_ANI_MONGODB_DB;
 const COLLECTION_NAME = 'allani';
@@ -411,14 +417,14 @@ export async function GET(request: NextRequest) {
   const mal_id = searchParams.get('mal_id');
   
   if (!method) {
-    return NextResponse.json({ error: 'method parameter is required' }, { status: 400 });
+    return NextResponse.json({ error: 'method parameter is required' }, { status: 400, headers: corsHeaders });
   }
   
   try {
     if (method === 'links' && session) {
       const pageNum = page ? parseInt(page) : 1;
       if (isNaN(pageNum) || pageNum < 1) {
-        return NextResponse.json({ error: 'Invalid page number' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid page number' }, { status: 400, headers: corsHeaders });
       }
       
       const animeData = await getAnime(session, pageNum);
@@ -429,7 +435,7 @@ export async function GET(request: NextRequest) {
       const animeInfo = await getAnimeInfo(mal_id);
       return NextResponse.json(animeInfo);
     } else {
-      return NextResponse.json({ error: 'Invalid method or missing session' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid method or missing session' }, { status: 400, headers: corsHeaders });
     }
   } catch (error) {
     console.error('Scraping error:', error);
@@ -438,7 +444,18 @@ export async function GET(request: NextRequest) {
         error: 'Failed to scrape links',
         details: error instanceof Error ? error.message : 'Unknown error'
       }, 
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': 'https://meowani.vercel.app',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }
