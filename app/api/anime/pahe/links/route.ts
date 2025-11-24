@@ -563,6 +563,20 @@ export async function GET(request: NextRequest) {
     } else if (method === 'info' && mal_id) {
       const animeInfo = await getAnimeInfo(mal_id);
       return NextResponse.json(animeInfo, { headers: corsHeaders });
+    } else if (method === 'mal_id' && session) {
+      const malId = await getMalIdFromPahe(session);
+      
+      if (!malId) {
+        return NextResponse.json({ 
+          error: 'MAL ID not found for this session',
+          session: session
+        }, { status: 404, headers: corsHeaders });
+      }
+      
+      return NextResponse.json({
+        session: session,
+        mal_id: malId
+      }, { headers: corsHeaders });
     } else {
       return NextResponse.json({ error: 'Invalid method or missing session' }, { status: 400, headers: corsHeaders });
     }
