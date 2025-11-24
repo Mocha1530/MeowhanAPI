@@ -228,6 +228,43 @@ async function fetchMALAnimeInfo(malId: string) {
   return response.json();
 }
 
+async function getBasicAnimeInfo(session: string) {
+  try {
+    const malId = await getPaheMalId(session);
+    if (!malId) {
+      return null;
+    }
+
+    const fields = "id,title,main_picture,alternative_titles,media_type,rating,average_episode_duration,status";
+    const response = await fetch(`https://api.myanimelist.net/v2/anime/${malId}?fields=${fields}`, {
+      headers: {
+        'X-MAL-CLIENT-ID': process.env.MAL_CLIENT_ID!
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`MAL API error! status: ${response.status}`);
+    }
+
+    const malData = await response.json();
+    
+    return {
+      mal_id: malData.id,
+      session: session,
+      title: malData.title,
+      eng_title: malData.alternative_titles?.en || malData.title,
+      poster: malData.main_picture?.large || malData.main_picture?.medium || '',
+      type: malData.media_type?.toUpperCase() || 'TV',
+      rating: malData.rating || 'g',
+      duration: malData.average_episode_duration || 0,
+      status: malData.status || 'unknown'
+    };
+  } catch (error) {
+    console.error('Error getting basic anime info:', error);
+    return null;
+  }
+}
+
 async function searchAnimeOnPahe(title: string) {
   const searchUrl = `https://animepahe.si/api?m=search&q=${encodeURIComponent(title)}`;
   const response = await fetch(searchUrl, {
@@ -526,6 +563,7 @@ export async function GET(request: NextRequest) {
   const session = searchParams.get('session');
   const page = searchParams.get('page');
   const mal_id = searchParams.get('mal_id');
+  const advanced = searchParams.get('advanced');
   
   if (!method) {
     return NextResponse.json({ error: 'method parameter is required' }, { status: 400, headers: corsHeaders });
@@ -546,6 +584,19 @@ export async function GET(request: NextRequest) {
       const animeInfo = await getAnimeInfo(mal_id);
       return NextResponse.json(animeInfo, { headers: corsHeaders });
     } else if (method === 'mal_id' && session) {
+      if (advanced === 'true') {
+        const basicInfo = await getBasicAnimeInfo(session);
+        
+        if (!basicInfo) {
+          return NextResponse.json({ 
+            error: 'Could not fetch basic anime info for this session',
+            session: session
+          }, { status: 404, headers: corsHeaders });
+        }
+        
+        return NextResponse.json(basicInfo, { headers: corsHeaders });
+      }
+      
       const malId = await getPaheMalId(session);
       
       if (!malId) {
