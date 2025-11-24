@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     if (!data.data || data.data.length === 0) {
       return NextResponse.json({
         data: [],
-        pagination: data
+        pagination: data.pagination
       }, { headers: corsHeaders });
     }
     
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       data.data.map(async (episode: any) => {
         try {
           const animeInfoResponse = await fetch(
-            `./links?method=mal_id&session=${episode.anime_session}&advanced=true`
+            `https://meowhan.vercel.app/api/anime/pahe/links?method=mal_id&session=${episode.anime_session}&advanced=true`
           );
           
           if (animeInfoResponse.ok) {
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       data: enhancedEpisodes,
-      pagination: data
+      pagination: data.pagination       
     }, { headers: corsHeaders });
     
   } catch (error) {
