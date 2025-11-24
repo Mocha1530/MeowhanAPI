@@ -354,9 +354,122 @@ async function getAnimeInfo(malId: string) {
   const collection = db.collection(COLLECTION_NAME);
   
   let existingAnime = await collection.findOne({ anime_id: parseInt(malId) });
+  const malData = await fetchMALAnimeInfo(malId);
   
   if (existingAnime) {
     existingAnime = convertDecimalFields(existingAnime);
+    let needsUpdate = false;
+    const updates: any = {};
+    
+    const fieldsToCheck = [
+      'title', 'synopsis', 'status', 'episode_count', 
+      'start_date', 'end_date', 'score', 'rating'
+    ];
+
+    for (const field of fieldsToCheck) {
+      const malField = field === 'episode_count' ? 'num_episodes' : 
+                      field === 'score' ? 'mean' : field;
+      
+      const currentValue = existingAnime[field];
+      const newValue = malData[malField];
+      
+      if (JSON.stringify(currentValue) !== JSON.stringify(newValue)) {
+        needsUpdate = true;
+        updates[field] = newValue;
+      }
+    }
+
+    const currentGenres = existingAnime.genres || [];
+    const newGenres = malData.genres?.map((g: any) => g.name) || [];
+    if (JSON.stringify(currentGenres.sort()) !== JSON.stringify(newGenres.sort())) {
+      needsUpdate = true;
+      updates.genres = newGenres;
+    }
+    
+    const currentStudios = existingAnime.studios || [];
+    const newStudios = malData.studios?.map((s: any) => s.name) || [];
+    if (JSON.stringify(currentStudios.sort()) !== JSON.stringify(newStudios.sort())) {
+      needsUpdate = true;
+      updates.studios = newStudios;
+    }
+    
+    const currentAltTitles = existingAnime.alternative_titles || {};
+    const newAltTitles = {
+      synonyms: malData.alternative_titles?.synonyms || [],
+      en: malData.alternative_titles?.en || malData.title,
+      jp: malData.alternative_titles?.ja || ''
+    };
+    if (JSON.stringify(currentAltTitles) !== JSON.stringify(newAltTitles)) {
+      needsUpdate = true;
+      updates.alternative_titles = newAltTitles;
+    }
+    
+    const currentRecs = existingAnime.recommendations || [];
+    const newRecs = malData.recommendations?.map((rec: any) => ({
+      anime_id: rec.node.id,
+      title: rec.node.title,
+      poster: rec.node.main_picture?.large || rec.node.main_picture?.medium || ''
+    })) || [];
+    if (JSON.stringify(currentRecs) !== JSON.stringify(newRecs)) {
+      needsUpdate = true;
+      updates.recommendations = newRecs;
+    }
+    
+    const currentRelated = existingAnime.related_anime || [];
+    const newRelated = malData.related_anime?.map((rel: any) => ({
+      anime_id: rel.node.id,
+      title: rel.node.title,
+      poster: rel.node.main_picture?.large || rel.node.main_picture?.medium || ''
+    })) || [];
+    if (JSON.stringify(currentRelated) !== JSON.stringify(newRelated)) {
+      needsUpdate = true;
+      updates.related_anime = newRelated;
+    }
+    
+    if (needsUpdate) {
+      await collection.updateOne(
+        { anime_id: parseInt(malId) },
+        { $set: updates }
+      );
+      console.log(`Updated anime ${malId} with new data`);
+    }
+
+    if (existingAnime.status === 'currently_airing' && existingAnime.session) {
+      try {
+        const latestEpisodesData = await getAllEpisodes(existingAnime.session, 1);
+        const currentEpisodeCount = existingAnime.episodes?.length || 0;
+        const newEpisodeCount = latestEpisodesData.pagination.total;
+        
+        if (newEpisodeCount > currentEpisodeCount) {
+          console.log(`New episodes found for ${malId}. Updating from ${currentEpisodeCount} to ${newEpisodeCount} episodes`);
+          
+          if (newEpisodeCount > 30) {
+            await collection.updateOne(
+              { anime_id: parseInt(malId) },
+              { $set: { use_api: true } }
+            );
+            existingAnime.use_api = true;
+          } else {
+            let allEpisodes = [...latestEpisodesData.episodes];
+            let currentPage = 1;
+            
+            while (currentPage < latestEpisodesData.pagination.last_page) {
+              currentPage++;
+              const nextPageData = await getAllEpisodes(existingAnime.session, currentPage);
+              allEpisodes = [...allEpisodes, ...nextPageData.episodes];
+            }
+            
+            await collection.updateOne(
+              { anime_id: parseInt(malId) },
+              { $set: { episodes: allEpisodes } }
+            );
+            existingAnime.episodes = allEpisodes;
+          }
+        }
+      } catch (error) {
+        console.error('Error updating episodes for currently airing anime:', error);
+      }
+    }
     
     if (existingAnime.session && (!existingAnime.episodes || existingAnime.episodes.length === 0)) {
       try {
@@ -392,7 +505,6 @@ async function getAnimeInfo(malId: string) {
     return existingAnime;
   }
   
-  const malData = await fetchMALAnimeInfo(malId);
   const paheAnime = await findMatchingPaheAnime(malId, malData.title);
   let animeDoc = mapMALToDatabaseSchema(malData, paheAnime);
   
