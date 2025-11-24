@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
     const page = await browser.newPage();
     
     await page.setViewport({ 
-      width: 1280, 
-      height: 720,
+      width: 1920, 
+      height: 1080,
       deviceScaleFactor: 1 
     });
 
