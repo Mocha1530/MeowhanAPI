@@ -316,6 +316,7 @@ function mapMALToDatabaseSchema(malData: any, paheData: any = null) {
     start_date: malData.start_date || '',
     end_date: malData.end_date || '',
     episode_count: malData.num_episodes || 0,
+    current_episode_count: 0,
     broadcast: malData.broadcast || null,
     duration: malData.average_episode_duration || 0,
     rating: ratingMap[malData.rating] || malData.rating || 'g',
@@ -434,21 +435,23 @@ async function getAnimeInfo(malId: string) {
       console.log(`Updated anime ${malId} with new data`);
     }
 
-    if (existingAnime.status === 'currently_airing' && existingAnime.session) {
+    if ((existingAnime.status === 'currently_airing' && existingAnime.session) || 
+        (existingAnime.session && (!existingAnime.episodes || existingAnime.episodes.length === 0))) {
       try {
         const latestEpisodesData = await getAllEpisodes(existingAnime.session, 1);
         const currentEpisodeCount = existingAnime.episodes?.length || 0;
         const newEpisodeCount = latestEpisodesData.pagination.total;
+
+        if (newEpisodeCount !== currentEpisodeCount) {
+          updates.current_episode_count = newEpisodeCount
+          needsUpdate = true;
+        }
         
         if (newEpisodeCount > currentEpisodeCount) {
           console.log(`New episodes found for ${malId}. Updating from ${currentEpisodeCount} to ${newEpisodeCount} episodes`);
           
           if (newEpisodeCount > 30) {
-            await collection.updateOne(
-              { anime_id: parseInt(malId) },
-              { $set: { use_api: true } }
-            );
-            existingAnime.use_api = true;
+            updates.use_api = true;
           } else {
             let allEpisodes = [...latestEpisodesData.episodes];
             let currentPage = 1;
@@ -459,47 +462,22 @@ async function getAnimeInfo(malId: string) {
               allEpisodes = [...allEpisodes, ...nextPageData.episodes];
             }
             
-            await collection.updateOne(
-              { anime_id: parseInt(malId) },
-              { $set: { episodes: allEpisodes } }
-            );
-            existingAnime.episodes = allEpisodes;
+            updates.episodes = allEpisodes;
+            updates.current_episode_count = allEpisodes.length;
           }
+          needsUpdate = true;
         }
       } catch (error) {
         console.error('Error updating episodes for currently airing anime:', error);
       }
     }
     
-    if (existingAnime.session && (!existingAnime.episodes || existingAnime.episodes.length === 0)) {
-      try {
-        const episodesData = await getAllEpisodes(existingAnime.session, 1);
-
-        if (episodesData.pagination.total > 30) {
-          await collection.updateOne(
-            { anime_id: parseInt(malId) },
-            { $set: { use_api: true } }
-          );
-          existingAnime.use_api = true;
-        } else {
-          let allEpisodes = [...episodesData.episodes];
-          let currentPage = 1;
-          
-          while (currentPage < episodesData.pagination.last_page) {
-            currentPage++;
-            const nextPageData = await getAllEpisodes(existingAnime.session, currentPage);
-            allEpisodes = [...allEpisodes, ...nextPageData.episodes];
-          }
-          
-          await collection.updateOne(
-            { anime_id: parseInt(malId) },
-            { $set: { episodes: allEpisodes } }
-          );
-          existingAnime.episodes = allEpisodes;
-        }
-      } catch (error) {
-        
-      }
+    if (needsUpdate) {
+      await collection.updateOne(
+        { anime_id: parseInt(malId) },
+        { $set: updates }
+      );
+      existingAnime = { ...existingAnime, ...updates };
     }
     
     return existingAnime;
@@ -507,10 +485,13 @@ async function getAnimeInfo(malId: string) {
   
   const paheAnime = await findMatchingPaheAnime(malId, malData.title);
   let animeDoc = mapMALToDatabaseSchema(malData, paheAnime);
+  animeDoc.current_episode_count = 0;
   
   if (paheAnime) {
     try {
       const episodesData = await getAllEpisodes(paheAnime.session, 1);
+      const totalEpisodes = episodesData.pagination.total;
+      animeDoc.current_episode_count = totalEpisodes;
       
       if (episodesData.pagination.total > 30) {
         animeDoc.use_api = true;
@@ -525,6 +506,7 @@ async function getAnimeInfo(malId: string) {
         }
         
         animeDoc.episodes = allEpisodes;
+        animeDoc.current_episode_count = allEpisodes.length;
       }
     } catch (error) {
       console.error('Error fetching episodes:', error);
