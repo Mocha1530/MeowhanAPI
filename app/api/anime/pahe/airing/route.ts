@@ -93,12 +93,14 @@ export async function GET(request: NextRequest) {
 
     if (page === '1') {
       cache = {
-        data: enhancedEpisodes,
-        pagination: {
-          total: data.total,
-          per_page: data.per_page,
-          current_page: data.current_page,
-          last_page: data.last_page
+        data: { 
+          data: enhancedEpisodes,
+          pagination: {
+            total: data.total,
+            per_page: data.per_page,
+            current_page: data.current_page,
+            last_page: data.last_page
+          }
         },
         timestamp: Date.now()
       };
