@@ -215,7 +215,7 @@ async function fetchMALAnimeInfo(malId: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`MAL API error! status: ${response.status}`);
+    throw new Error(`MAL API error! status: ${response.text()} ${response.status}`);
   }
 
   return response.json();
