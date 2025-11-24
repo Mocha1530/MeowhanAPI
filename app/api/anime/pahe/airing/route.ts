@@ -36,6 +36,13 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
+
+    if (!data.data || data.data.length === 0) {
+      return NextResponse.json({
+        data: [],
+        pagination: data
+      }, { headers: corsHeaders });
+    }
     
     if (page === '1') {
       cache = {
@@ -43,14 +50,64 @@ export async function GET(request: NextRequest) {
         timestamp: Date.now()
       };
     }
+
+    const enhancedEpisodes = await Promise.all(
+      data.data.map(async (episode: any) => {
+        try {
+          const animeInfoResponse = await fetch(
+            `./links?method=mal_id&session=${episode.anime_session}&advanced=true`
+          );
+          
+          if (animeInfoResponse.ok) {
+            const animeInfo = await animeInfoResponse.json();
+            return {
+              ...episode,
+              anime_info: animeInfo
+            };
+          } else {
+            return {
+              ...episode,
+              anime_info: {
+                session: episode.anime_session,
+                title: episode.anime_title,
+                eng_title: episode.anime_title,
+                poster: '',
+                type: 'TV',
+                rating: 'g',
+                duration: 0,
+                status: 'unknown'
+              }
+            };
+          }
+        } catch (error) {
+          console.error(`Error enhancing episode ${episode.episode}:`, error);
+          return {
+            ...episode,
+            anime_info: {
+              session: episode.anime_session,
+              title: episode.anime_title,
+              eng_title: episode.anime_title,
+              poster: '',
+              type: 'TV',
+              rating: 'g',
+              duration: 0,
+              status: 'unknown'
+            }
+          };
+        }
+      })
+    );
     
-    return NextResponse.json(data, { headers: corsHeaders });
+    return NextResponse.json({
+      data: enhancedEpisodes,
+      pagination: data
+    }, { headers: corsHeaders });
     
   } catch (error) {
     console.error('Airing proxy API error:', error);
     return NextResponse.json(
       { 
-        error: 'Failed to fetch airing data from AnimePahe',
+        error: 'Failed to fetch airing data',
         details: error instanceof Error ? error.message : 'Unknown error'
       }, 
       { status: 502, headers: corsHeaders }
