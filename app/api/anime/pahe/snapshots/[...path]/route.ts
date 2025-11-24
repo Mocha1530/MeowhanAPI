@@ -6,16 +6,44 @@ export async function GET(
 ) {
   try {
     const path = (await params).path.join('/');
-    const imageUrl = `https://i.animepahe.si/snapshots/${path}`;
+    const baseUrls = [
+      `https://i.animepahe.si/snapshots/${path}`,
+      `https://i.animepahe.si/uploads/snapshots/${path}`,
+    ];
+    
+    let imageResponse: Response | null = null;
+    let lastError: Error | null = null;
 
-    const imageResponse = await fetch(imageUrl, {
-      headers: {
-        'Referer': 'https://animepahe.si/'
+    for (const imageUrl of baseUrls) {
+      try {
+        imageResponse = await fetch(imageUrl, {
+          headers: {
+            'Referer': 'https://animepahe.si/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          signal: AbortSignal.timeout(10000)
+        });
+
+        if (imageResponse.ok) {
+          break;
+        }
+      } catch (error) {
+        lastError = error as Error;
+        imageResponse = null;
       }
-    });
+    }
 
-    if (!imageResponse.ok) {
-      return new NextResponse('Image not found', { status: imageResponse.status });
+    if (!imageResponse || !imageResponse.ok) {
+      const errorMessage = 'Image not found';
+      const statusCode = imageResponse?.status || 404;
+      
+      return new NextResponse(errorMessage, { 
+        status: statusCode,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        }
+      });
     }
 
     const imageBuffer = await imageResponse.arrayBuffer();
@@ -31,7 +59,8 @@ export async function GET(
       },
     });
   } catch (error) {
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new NextResponse('Internal Server Error', { status: 500, headers: { 'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS' } });
   }
 }
 
