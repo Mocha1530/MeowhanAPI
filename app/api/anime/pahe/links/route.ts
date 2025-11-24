@@ -334,6 +334,21 @@ function mapMALToDatabaseSchema(malData: any, paheData: any = null) {
   };
 }
 
+function convertDecimalFields(obj: any): any {
+  if (obj && typeof obj === 'object') {
+    if (obj.$numberDecimal !== undefined) {
+      return parseFloat(obj.$numberDecimal);
+    }
+    
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        obj[key] = convertDecimalFields(obj[key]);
+      }
+    }
+  }
+  return obj;
+}
+
 async function getAnimeInfo(malId: string) {
   const db = await connectToDatabase();
   const collection = db.collection(COLLECTION_NAME);
@@ -341,6 +356,8 @@ async function getAnimeInfo(malId: string) {
   let existingAnime = await collection.findOne({ anime_id: parseInt(malId) });
   
   if (existingAnime) {
+    existingAnime = convertDecimalFields(existingAnime);
+    
     if (existingAnime.session && (!existingAnime.episodes || existingAnime.episodes.length === 0)) {
       try {
         const episodesData = await getAllEpisodes(existingAnime.session, 1);
