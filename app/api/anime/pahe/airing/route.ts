@@ -43,13 +43,6 @@ export async function GET(request: NextRequest) {
         pagination: data.pagination
       }, { headers: corsHeaders });
     }
-    
-    if (page === '1') {
-      cache = {
-        data,
-        timestamp: Date.now()
-      };
-    }
 
     const enhancedEpisodes = await Promise.all(
       data.data.map(async (episode: any) => {
@@ -97,6 +90,19 @@ export async function GET(request: NextRequest) {
         }
       })
     );
+
+    if (page === '1') {
+      cache = {
+        data: enhancedEpisodes,
+        pagination: {
+          total: data.total,
+          per_page: data.per_page,
+          current_page: data.current_page,
+          last_page: data.last_page
+        },
+        timestamp: Date.now()
+      };
+    }
     
     return NextResponse.json({
       data: enhancedEpisodes,
