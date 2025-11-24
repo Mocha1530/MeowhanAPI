@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { MongoClient, ObjectId } from 'mongodb';
 
 const pheaders = { 
   "Accept": "application/json, text/javascript, */*; q=0.0",
@@ -6,6 +7,16 @@ const pheaders = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
   "Cookie": process.env.PAHE_COOKIE
 };
+
+const MONGODB_URI = process.env.MEOW_MONGODB_URI!;
+const DB_NAME = process.env.MEOW_ANI_MONGODB_DB;
+const COLLECTION_NAME = 'allani';
+
+async function connectToDatabase() {
+  const client = new MongoClient(MONGODB_URI);
+  await client.connect();
+  return client.db(DB_NAME);
+}
 
 function getProxiedSnapshotUrl(originalUrl: string): string {
   if (!originalUrl) return '';
@@ -195,11 +206,208 @@ async function getAnime(session: string, page: number = 1) {
   };
 }
 
+async function fetchMALAnimeInfo(malId: string) {
+  const fields = "id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,start_season,broadcast,average_episode_duration,rating,related_anime,recommendations,studios";
+  const response = await fetch(`https://api.myanimelist.net/v2/anime/${malId}?fields=${fields}`, {
+    headers: {
+      'X-MAL-CLIENT-ID': process.env.MAL_CLIENT_ID!
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`MAL API error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function searchAnimeOnPahe(title: string) {
+  const searchUrl = `https://animepahe.si/api?m=search&q=${encodeURIComponent(title)}`;
+  const response = await fetch(searchUrl, {
+    headers: {
+      ...pheaders,
+      "X-Requested-With": "XMLHttpRequest"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Search API error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function getPaheMalId(session: string) {
+  const response = await fetch(`https://animepahe.si/anime/${session}`, {
+    headers: pheaders
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const html = await response.text();
+  const malIdMatch = html.match(/<meta name="myanimelist" content="(\d+)">/);
+  return malIdMatch ? malIdMatch[1] : null;
+}
+
+async function findMatchingPaheAnime(malId: string, title: string) {
+  const searchResults = await searchAnimeOnPahe(title);
+
+  if (!searchResults.data) {
+    return null;
+  }
+  
+  for (const anime of searchResults.data) {
+    try {
+      const paheMalId = await getPaheMalId(anime.session);
+      if (paheMalId === malId) {
+        return anime;
+      }
+    } catch (error) {
+      console.error(`Error checking anime ${anime.title}:`, error);
+      continue;
+    }
+  }
+  
+  return null;
+}
+
+function mapMALToDatabaseSchema(malData: any, paheData: any = null) {
+  const statusMap: { [key: string]: string } = {
+    'currently_airing': 'currently_airing',
+    'finished_airing': 'finished_airing',
+    'not_yet_aired': 'not_yet_aired'
+  };
+
+  const ratingMap: { [key: string]: string } = {
+    'g': 'g',
+    'pg': 'pg',
+    'pg_13': 'pg_13',
+    'r': 'r',
+    'r+': 'r+',
+    'rx': 'rx'
+  };
+  
+  return {
+    anime_id: malData.id,
+    session: paheData?.session || null,
+    title: malData.title,
+    alternative_titles: {
+      synonyms: malData.alternative_titles?.synonyms || [],
+      en: malData.alternative_titles?.en || malData.title,
+      jp: malData.alternative_titles?.ja || ''
+    },
+    synopsis: malData.synopsis || '',
+    poster: malData.main_picture?.large || malData.main_picture?.medium || '',
+    type: malData.media_type?.toUpperCase() || 'TV',
+    score: malData.mean || 0,
+    status: statusMap[malData.status] || malData.status,
+    genres: malData.genres?.map((genre: any) => genre.name) || [],
+    studios: malData.studios?.map((studio: any) => studio.name) || [],
+    start_season: malData.start_season || null,
+    start_date: malData.start_date || '',
+    end_date: malData.end_date || '',
+    episode_count: malData.num_episodes || 0,
+    broadcast: malData.broadcast || null,
+    duration: malData.average_episode_duration || 0,
+    rating: ratingMap[malData.rating] || malData.rating || 'g',
+    episodes: [],
+    recommendations: malData.recommendations?.map((rec: any) => ({
+      anime_id: rec.node.id,
+      title: rec.node.title,
+      poster: rec.node.main_picture?.large || rec.node.main_picture?.medium || ''
+    })) || [],
+    related_anime: malData.related_anime?.map((rel: any) => ({
+      anime_id: rel.node.id,
+      title: rel.node.title,
+      poster: rel.node.main_picture?.large || rel.node.main_picture?.medium || ''
+    })) || [],
+    use_api: false
+  };
+}
+
+async function getAnimeInfo(malId: string) {
+  const db = await connectToDatabase();
+  const collection = db.collection(COLLECTION_NAME);
+  
+  let existingAnime = await collection.findOne({ anime_id: parseInt(malId) });
+  
+  if (existingAnime) {
+    if (existingAnime.session && (!existingAnime.episodes || existingAnime.episodes.length === 0)) {
+      try {
+        const episodesData = await getAllEpisodes(existingAnime.session, 1);
+
+        if (episodesData.pagination.total > 30) {
+          await collection.updateOne(
+            { anime_id: parseInt(malId) },
+            { $set: { use_api: true } }
+          );
+          existingAnime.use_api = true;
+        } else {
+          let allEpisodes = [...episodesData.episodes];
+          let currentPage = 1;
+          
+          while (currentPage < episodesData.pagination.last_page) {
+            currentPage++;
+            const nextPageData = await getAllEpisodes(existingAnime.session, currentPage);
+            allEpisodes = [...allEpisodes, ...nextPageData.episodes];
+          }
+          
+          await collection.updateOne(
+            { anime_id: parseInt(malId) },
+            { $set: { episodes: allEpisodes } }
+          );
+          existingAnime.episodes = allEpisodes;
+        }
+      } catch (error) {
+        
+      }
+    }
+    
+    return existingAnime;
+  }
+  
+  const malData = await fetchMALAnimeInfo(malId);
+  const paheAnime = await findMatchingPaheAnime(malId, malData.title);
+  let animeDoc = mapMALToDatabaseSchema(malData, paheAnime);
+  
+  if (paheAnime) {
+    try {
+      const episodesData = await getAllEpisodes(paheAnime.session, 1);
+      
+      if (episodesData.pagination.total > 30) {
+        animeDoc.use_api = true;
+      } else {
+        let allEpisodes = [...episodesData.episodes];
+        let currentPage = 1;
+        
+        while (currentPage < episodesData.pagination.last_page) {
+          currentPage++;
+          const nextPageData = await getAllEpisodes(paheAnime.session, currentPage);
+          allEpisodes = [...allEpisodes, ...nextPageData.episodes];
+        }
+        
+        animeDoc.episodes = allEpisodes;
+      }
+    } catch (error) {
+      console.error('Error fetching episodes:', error);
+      animeDoc.use_api = true;
+    }
+  }
+  
+  const result = await collection.insertOne(animeDoc);
+  animeDoc._id = result.insertedId;
+  
+  return animeDoc;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const method = searchParams.get('method');
   const session = searchParams.get('session');
   const page = searchParams.get('page');
+  const mal_id = searchParams.get('mal_id');
   
   if (!method) {
     return NextResponse.json({ error: 'method parameter is required' }, { status: 400 });
@@ -216,6 +424,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         ...animeData
       });
+    } else if (method === 'info' && mal_id) {
+      const animeInfo = await getAnimeInfo(mal_id);
+      return NextResponse.json(animeInfo);
     } else {
       return NextResponse.json({ error: 'Invalid method or missing session' }, { status: 400 });
     }
