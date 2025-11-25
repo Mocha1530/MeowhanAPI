@@ -235,7 +235,7 @@ async function getBasicAnimeInfo(session: string) {
       return null;
     }
 
-    const fields = "id,title,main_picture,alternative_titles,media_type,rating,average_episode_duration,status";
+    const fields = "id,title,main_picture,alternative_titles,media_type,rating,average_episode_duration,status,num_episodes";
     const response = await fetch(`https://api.myanimelist.net/v2/anime/${malId}?fields=${fields}`, {
       headers: {
         'X-MAL-CLIENT-ID': process.env.MAL_CLIENT_ID!
@@ -256,6 +256,7 @@ async function getBasicAnimeInfo(session: string) {
       poster: malData.main_picture?.large || malData.main_picture?.medium || '',
       type: malData.media_type?.toUpperCase() || 'TV',
       rating: malData.rating || 'g',
+      episode_count: malData.num_episodes || 0,
       duration: malData.average_episode_duration || 0,
       status: malData.status || 'unknown'
     };
