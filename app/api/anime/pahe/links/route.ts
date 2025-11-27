@@ -7,6 +7,7 @@ import { getEpisodeData } from '@/utils/episode';
 import { connectToDatabase } from '@/utils/database';
 
 export async function GET(request: NextRequest) {
+  const db = await connectToDatabase();
   const { searchParams } = new URL(request.url);
   const method = searchParams.get('method');
   const session = searchParams.get('session');
@@ -32,7 +33,8 @@ export async function GET(request: NextRequest) {
         
       case 'info':
         if (!malId) throw new Error('mal_id parameter required');
-        const animeInfo = await getAnimeInfo(malId);
+        const db = await connectToDatabase();
+        const animeInfo = await getAnimeInfo(malId, db);
         return NextResponse.json(animeInfo, { headers: CORS_HEADERS });
         
       case 'mal_id':
@@ -50,8 +52,9 @@ export async function GET(request: NextRequest) {
         if (!animeSession || !episodeSession || !episodeNumber) {
           throw new Error('anime_session, episode_session, and episode_number parameters required');
         }
+        const db = await connectToDatabase();
         const episode = { episode_session: episodeSession, episode_number: parseInt(episodeNumber) };
-        const episodeData = await getEpisodeData(animeSession, episode);
+        const episodeData = await getEpisodeData(animeSession, episode, db);
         return NextResponse.json(episodeData, { headers: CORS_HEADERS });
         
       default:
