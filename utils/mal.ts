@@ -1,4 +1,5 @@
 import { EXTERNAL_APIS } from '@/lib/constants';
+import { getPaheMalId } from './anime-scraper';
 
 export async function fetchMALAnimeInfo(malId: string, fields: string = EXTERNAL_APIS.MAL.FIELDS.FULL) {
   const response = await fetch(`${EXTERNAL_APIS.MAL.BASE}/${malId}?fields=${fields}`, {
@@ -40,4 +41,4 @@ export async function getBasicAnimeInfo(session: string) {
   }
 }
 
-export { getPaheMalId } from './anime-scraper';
+export { getPaheMalId };
