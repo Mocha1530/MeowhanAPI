@@ -156,10 +156,10 @@ async function updateExistingAnime(existingAnime: any, malData: any, collection:
     
   if (needsUpdate) {
     await collection.updateOne(
-      { anime_id: parseInt(malId) },
+      { anime_id: parseInt(malData.id) },
       { $set: updates }
     );
-    console.log(`Updated anime ${malId} with new data`);
+    console.log(`Updated anime ${malData.id} with new data`);
   }
 
   if ((existingAnime.status === 'currently_airing' && existingAnime.session) || 
@@ -175,7 +175,7 @@ async function updateExistingAnime(existingAnime: any, malData: any, collection:
       }
         
       if (newEpisodeCount > currentEpisodeCount) {
-        console.log(`New episodes found for ${malId}. Updating from ${currentEpisodeCount} to ${newEpisodeCount} episodes`);
+        console.log(`New episodes found for ${malData.id}. Updating from ${currentEpisodeCount} to ${newEpisodeCount} episodes`);
           
         if (newEpisodeCount > 30) {
           updates.use_api = true;
@@ -244,7 +244,7 @@ async function updateExistingAnime(existingAnime: any, malData: any, collection:
     
   if (needsUpdate) {
     await collection.updateOne(
-      { anime_id: parseInt(malId) },
+      { anime_id: parseInt(malData.id) },
       { $set: updates }
     );
     existingAnime = { ...existingAnime, ...updates };
