@@ -7,7 +7,6 @@ import { getEpisodeData } from '@/utils/episode';
 import { connectToDatabase } from '@/utils/database';
 
 export async function GET(request: NextRequest) {
-  const db = await connectToDatabase();
   const { searchParams } = new URL(request.url);
   const method = searchParams.get('method');
   const session = searchParams.get('session');
