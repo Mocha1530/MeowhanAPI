@@ -38,19 +38,72 @@ export async function GET(request: NextRequest) {
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0');
 
+    let pendingRequests = 0;
+    let lastActivity = Date.now();
+
+    await page.setRequestInterception(true);
+
+    page.on('request', (request) => {
+      pendingRequests++;
+      lastActivity = Date.now();
+      request.continue();
+    });
+
+    page.on('requestfinished', (request) => {
+      pendingRequests--;
+      lastActivity = Date.now();
+    });
+
+    page.on('requestfailed', (request) => {
+      pendingRequests--;
+      lastActivity = Date.now();
+    });
+
     await page.goto(url, { 
-      waitUntil: 'networkidle2', 
+      waitUntil: 'domcontentloaded', 
       timeout: 30000 
     });
 
-    await page.waitForFunction(
-      () => {
-        return document.readyState === 'complete' && 
-               document.body != null && 
-               document.querySelector('img[loading="lazy"]') === null;
-      },
-      { timeout: 10000 }
-    );
+    const maxWaitTime = 15000;
+    const networkIdleTime = 2000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitTime) {
+      if (Date.now() - lastActivity > networkIdleTime && pendingRequests === 0) {
+        break;
+      }
+      
+      await page.waitForTimeout(500);
+    }
+
+    try {
+      await page.waitForFunction(
+        () => {
+          if (window._fetchRequests && window._fetchRequests > 0) return false;
+          
+          const loaders = document.querySelectorAll('[data-loading], .loading, .spinner, .loader, [aria-busy="true"]');
+          if (loaders.length > 0) return false;
+          
+          const images = Array.from(document.images);
+          if (images.some(img => !img.complete)) return false;
+          
+          return document.readyState === 'complete';
+        },
+        { timeout: 5000, polling: 500 }
+      );
+    } catch (error) {
+    }
+
+    await page.waitForTimeout(1000);
+
+    // await page.waitForFunction(
+    //   () => {
+    //     return document.readyState === 'complete' && 
+    //            document.body != null && 
+    //            document.querySelector('img[loading="lazy"]') === null;
+    //   },
+    //   { timeout: 10000 }
+    // );
 
     //await page.waitForTimeout(2000);
 
@@ -60,8 +113,8 @@ export async function GET(request: NextRequest) {
       fullPage: false,
     });
 
-    const html = await page.content();
-    console.log(html);
+    // const html = await page.content();
+    // console.log(html);
 
     await browser.close();
 
