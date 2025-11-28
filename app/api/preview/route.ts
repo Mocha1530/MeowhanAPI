@@ -38,63 +38,60 @@ export async function GET(request: NextRequest) {
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0');
 
-    let pendingRequests = 0;
-    let lastActivity = Date.now();
+    // let pendingRequests = 0;
+    // let lastActivity = Date.now();
 
-    await page.setRequestInterception(true);
+    // await page.setRequestInterception(true);
 
-    page.on('request', (request) => {
-      pendingRequests++;
-      lastActivity = Date.now();
-      request.continue();
-    });
+    // page.on('request', (request) => {
+    //   pendingRequests++;
+    //   lastActivity = Date.now();
+    //   request.continue();
+    // });
 
-    page.on('requestfinished', (request) => {
-      pendingRequests--;
-      lastActivity = Date.now();
-    });
+    // page.on('requestfinished', (request) => {
+    //   pendingRequests--;
+    //   lastActivity = Date.now();
+    // });
 
-    page.on('requestfailed', (request) => {
-      pendingRequests--;
-      lastActivity = Date.now();
-    });
+    // page.on('requestfailed', (request) => {
+    //   pendingRequests--;
+    //   lastActivity = Date.now();
+    // });
 
     await page.goto(url, { 
-      waitUntil: 'domcontentloaded', 
+      waitUntil: 'networkidle2', 
       timeout: 30000 
     });
 
-    const maxWaitTime = 15000;
-    const networkIdleTime = 2000;
-    const startTime = Date.now();
+    // const maxWaitTime = 15000;
+    // const networkIdleTime = 2000;
+    // const startTime = Date.now();
 
-    while (Date.now() - startTime < maxWaitTime) {
-      if (Date.now() - lastActivity > networkIdleTime && pendingRequests === 0) {
-        break;
-      }
+    // while (Date.now() - startTime < maxWaitTime) {
+    //   if (Date.now() - lastActivity > networkIdleTime && pendingRequests === 0) {
+    //     break;
+    //   }
       
-      await page.waitForTimeout(500);
-    }
+    //   await page.waitForTimeout(500);
+    // }
 
     try {
       await page.waitForFunction(
         () => {
-          if (window._fetchRequests && window._fetchRequests > 0) return false;
+          const loaders = document.querySelectorAll('.loading, .spinner, [data-loading], [aria-busy="true"]');
+          const isContentLoaded = document.readyState === 'complete';
+          const imagesLoaded = Array.from(document.images).every(img => img.complete);
           
-          const loaders = document.querySelectorAll('[data-loading], .loading, .spinner, .loader, [aria-busy="true"]');
-          if (loaders.length > 0) return false;
-          
-          const images = Array.from(document.images);
-          if (images.some(img => !img.complete)) return false;
-          
-          return document.readyState === 'complete';
+          return loaders.length === 0 && isContentLoaded && imagesLoaded;
         },
-        { timeout: 5000, polling: 500 }
+        { 
+          timeout: 15000,
+          polling: 1000
+        }
       );
     } catch (error) {
     }
-
-    await page.waitForTimeout(1000);
 
     // await page.waitForFunction(
     //   () => {
