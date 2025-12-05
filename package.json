@@ -50,7 +50,7 @@
     "input-otp": "latest",
     "lucide-react": "^0.454.0",
     "mongodb": "^5.8.0",
-    "next": "15.2.4",
+    "next": "16.0.7",
     "next-themes": "latest",
     "probe-image-size": "latest",
     "puppeteer-core": "^24.0.0",
