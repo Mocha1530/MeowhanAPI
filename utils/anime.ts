@@ -63,9 +63,15 @@ export function mapMALToDatabaseSchema(malData: any, paheData: any = null) {
       poster: rec.node.main_picture?.large || rec.node.main_picture?.medium || ''
     })) || [],
     related_anime: malData.related_anime?.map((rel: any) => ({
-      anime_id: rel.node.id,
-      title: rel.node.title,
-      poster: rel.node.main_picture?.large || rel.node.main_picture?.medium || ''
+      anime: {
+        anime_id: rel.node.id,
+        title: rel.node.title,
+        poster: rel.node.main_picture?.large || rel.node.main_picture?.medium || '',
+        type: '',
+        duration: 0
+      },
+      type: rel.relation_type,
+      type_formatted: rel.relation_type_formatted
     })) || [],
     use_api: false
   };
@@ -91,7 +97,8 @@ async function updateExistingAnime(existingAnime: any, malData: any, collection:
     
   const fieldsToCheck = [
     'title', 'synopsis', 'status', 'episode_count', 
-    'start_date', 'end_date', 'score', 'rating'
+    'start_date', 'end_date', 'score', 'rating', 
+    'related_anime', 'recommendations'
   ];
 
   for (const field of fieldsToCheck) {
@@ -143,24 +150,105 @@ async function updateExistingAnime(existingAnime: any, malData: any, collection:
     updates.recommendations = newRecs;
   }
     
+  // const currentRelated = existingAnime.related_anime || [];
+  // const newRelated = malData.related_anime?.map((rel: any) => ({
+  //   anime_id: rel.node.id,
+  //   title: rel.node.title,
+  //   poster: rel.node.main_picture?.large || rel.node.main_picture?.medium || ''
+  // })) || [];
+  // if (JSON.stringify(currentRelated) !== JSON.stringify(newRelated)) {
+  //   needsUpdate = true;
+  //   updates.related_anime = newRelated;
+  // }
+
   const currentRelated = existingAnime.related_anime || [];
-  const newRelated = malData.related_anime?.map((rel: any) => ({
-    anime_id: rel.node.id,
-    title: rel.node.title,
-    poster: rel.node.main_picture?.large || rel.node.main_picture?.medium || ''
-  })) || [];
-  if (JSON.stringify(currentRelated) !== JSON.stringify(newRelated)) {
+  const normalizedCurrentRelated = currentRelated.map((rel: any) => {
+    if (rel.anime) {
+      return rel;
+    } else {
+      return {
+        anime: {
+          anime_id: rel.anime_id || rel.id,
+          title: rel.title,
+          poster: rel.poster,
+          type: '',
+          duration: 0
+        },
+        type: rel.relation_type || rel.type,
+        type_formatted: rel.relation_type_formatted || rel.type_formatted || ''
+      };
+    }
+  });
+
+  const newRelated = await Promise.all((malData.related_anime || []).map( async (rel: any) => {
+    try {
+      const relatedDetails = await fetchMALAnimeInfo(
+        rel.node.id.toString(),
+        'media_type,average_episode_duration'
+      );
+
+      return {
+        anime: {
+          anime_id: rel.node.id,
+          title: rel.node.title,
+          poster: rel.node.main_picture?.large || rel.node.main_picture?.medium || '',
+          type: relatedDetails.media_type?.toUpperCase() || '',
+          duration: relatedDetails.average_episode_duration || 0
+        },
+        type: rel.relation_type,
+        type_formatted: rel.relation_type_formatted
+      };
+    } catch (error) {
+      return { 
+          anime: {
+            anime_id: rel.node.id,
+            title: rel.node.title,
+            poster: rel.node.main_picture?.large || rel.node.main_picture?.medium || '',
+            type: '',
+            duration: 0
+          },
+          type: rel.relation_type,
+          type_formatted: rel.relation_type_formatted
+        };
+      }
+    })
+  );
+
+  const areRelatedAnimeEqual = (current: any[], updated: any[]) => {
+    if (current.length !== updated.length) return false;
+    
+    for (let i = 0; i < current.length; i++) {
+      const currentRel = current[i];
+      const updatedRel = updated[i];
+      
+      if (
+        currentRel.anime?.anime_id !== updatedRel.anime?.anime_id ||
+        currentRel.anime?.title !== updatedRel.anime?.title ||
+        currentRel.anime?.poster !== updatedRel.anime?.poster ||
+        currentRel.anime?.type !== updatedRel.anime?.type ||
+        currentRel.anime?.duration !== updatedRel.anime?.duration ||
+        currentRel.type !== updatedRel.type ||
+        currentRel.type_formatted !== updatedRel.type_formatted
+      ) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
+  if (!areRelatedAnimeEqual(normalizedCurrentRelated, newRelated)) {
     needsUpdate = true;
     updates.related_anime = newRelated;
   }
     
-  if (needsUpdate) {
-    await collection.updateOne(
-      { anime_id: parseInt(malData.id) },
-      { $set: updates }
-    );
-    console.log(`Updated anime ${malData.id} with new data`);
-  }
+  // if (needsUpdate) {
+  //   await collection.updateOne(
+  //     { anime_id: parseInt(malData.id) },
+  //     { $set: updates }
+  //   );
+  //   console.log(`Updated anime ${malData.id} with new data`);
+  // }
 
   if ((existingAnime.status === 'currently_airing' && existingAnime.session) || 
       (existingAnime.session && (!existingAnime.episodes || existingAnime.episodes.length === 0))) {
@@ -257,6 +345,29 @@ async function createNewAnime(malData: any, collection: any, db: Db) {
   const paheAnime = await findMatchingPaheAnime(malData.id.toString(), malData.title);
   let animeDoc = mapMALToDatabaseSchema(malData, paheAnime);
   animeDoc.current_episode_count = 0;
+
+  if (animeDoc.related_anime && animeDoc.related_anime.length > 0) {
+    animeDoc.related_anime = await Promise.all(animeDoc.related_anime.map(async (rel: any) => {
+      try {
+        const relatedDetails = await fetchMALAnimeInfo(
+          rel.anime.anime_id.toString(),
+          'media_type,average_episode_duration'
+        );
+        
+        return {
+          ...rel,
+          anime: {
+            ...rel.anime,
+            type: relatedDetails.media_type?.toUpperCase() || '',
+            duration: relatedDetails.average_episode_duration || 0
+          }
+        };
+      } catch (error) {
+        console.error(`Error fetching details for related anime ${rel.anime.anime_id}:`, error);
+        return rel;
+      }
+    }));
+  }
   
   if (paheAnime) {
     try {
