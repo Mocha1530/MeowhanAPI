@@ -97,7 +97,7 @@ async function updateExistingAnime(existingAnime: any, malData: any, collection:
     
   const fieldsToCheck = [
     'title', 'synopsis', 'status', 'episode_count', 
-    'start_date', 'end_date', 'score', 'rating', 
+    'start_date', 'end_date', 'score', 'rating'
   ];
 
   for (const field of fieldsToCheck) {
