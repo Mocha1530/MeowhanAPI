@@ -2,6 +2,44 @@ import { Db } from 'mongodb';
 import { EXTERNAL_APIS, DATABASE_CONFIG } from '@/lib/constants';
 import { getAllEpisodes } from './anime-scraper';
 
+function convertUrl(url: string): string {
+  if (!url) return url;
+
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+
+    if (hostname.includes('nextcdn.org')) {
+      const hostnameParts = urlObj.hostname.split('.');
+      const prefixParts = hostnameParts[0].split('-');
+
+      if (prefixParts.length >= 2) {
+        const numberParts = prefixParts[1];
+        const pathParts = urlObj.pathname.split('/');
+
+        const cleanPath = pathParts.slice(2).join('/');
+        
+        const fileParam = new URLSearchParams(urlObj.search).get('file');
+
+        const baseUrl = `https://vault-${numberParts}.kwik.cx/mp4/${cleanPath}`;
+        return fileParam ? `${baseUrl}?file=${fileParam}` : baseUrl;
+      }
+    }
+
+    if (hostname.includes('kwik.cx')) {
+      const queryParams = new URLSearchParams(urlObj.search);
+      const fileParam = queryParams.get('file'); 
+
+      return fileParam ? `https://${hostname}${urlObj.pathname}?file=${fileParam}` : `https://${hostname}${urlObj.pathname}`;
+    }
+
+    return url;
+  } catch (error) {
+    console.log('Error converting URL:', error);
+    return url;
+  }
+}
+
 export async function getEpisodeData(
   animeSession: string,
   episode: { 
@@ -25,7 +63,7 @@ export async function getEpisodeData(
     
     if (!episodeData) throw new Error('Episode not found in API');
   } else {
-    episodeData = anime.episodes.find(ep => ep.session === episode_session);
+    episodeData = anime.episodes.find((ep: any) => ep.session === episode_session);
     if (!episodeData) throw new Error('Episode not found in database');
   }
   
@@ -49,7 +87,7 @@ export async function fetchAndUpdateDirectUrls(anime: any, episodeData: any, epi
         return hasSub && hasResolution;
       });
       
-      if (!workerLink || kwikLink.direct_url) return kwikLink;
+      if (!workerLink || (kwikLink.direct_url && !kwikLink.direct_url.includes('nextcdn.org'))) return kwikLink;
       
       try {
         const directUrlResponse = await fetch(EXTERNAL_APIS.WORKERS.ACCESS_KWIK, {
@@ -67,7 +105,11 @@ export async function fetchAndUpdateDirectUrls(anime: any, episodeData: any, epi
         
         const directUrlData = await directUrlResponse.json();
         if (directUrlData.status && directUrlData.content.url) {
-          return { ...kwikLink, direct_url: directUrlData.content.url };
+          let directUrl = directUrlData.content.url;
+
+          directUrl = convertUrl(directUrl);
+
+          return { ...kwikLink, direct_url: directUrl };
         }
       } catch (error) {
         console.error(`Failed to get direct URL for ${workerLink.link}:`, error);
