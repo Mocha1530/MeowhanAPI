@@ -5,7 +5,7 @@ const generator = new IDCardGenerator(
   'public/ID_TEMPLATE.jpg',
   'public/font/BauerBodoniRegular.otf',
   undefined,
-  { fontSize: 78 }
+  { fontSize: 24 }
 );
 
 export async function GET(request: NextRequest) {

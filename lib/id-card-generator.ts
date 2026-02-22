@@ -41,21 +41,22 @@ export class IDCardGenerator {
   private templateBuffer: Buffer | null = null;
   private templatePath: string;
   private fontBase64: string | null = null;
+  private fontPath: string;
   private fontFamily: string;
 
   // Predefined rectangles
   private readonly defaultRects = {
-    name: { left: 624, top: 169, right: 980, bottom: 205 },
-    age: { left: 600, top: 284, right: 981, bottom: 245 },
-    gender: { left: 648, top: 369, right: 979, bottom: 326 },
-    status: { left: 633, top: 452, right: 980, bottom: 409 },
+    name: { left: 648, top: 169, right: 980, bottom: 205 },
+    age: { left: 648, top: 284, right: 980, bottom: 245 },
+    gender: { left: 648, top: 369, right: 980, bottom: 326 },
+    status: { left: 648, top: 452, right: 980, bottom: 409 },
     icon: { left: 99, top: 136, right: 405, bottom: 439 },
   };
 
   private defaultTextStyle: Required<TextStyle> = {
-    fontSize: 36,
+    fontSize: 24,
     fontFamily: 'EmbeddedFont',
-    color: '#8bdfea',
+    color: '#000000',
     fontWeight: 'bold',
   };
 
@@ -73,11 +74,8 @@ export class IDCardGenerator {
   ) {
     // Resolve relative paths against the project root so `public/...` works
     this.templatePath = this.resolvePath(templatePath);
+    this.fontPath = fontPath;
     this.fontFamily = 'EmbeddedFont';
-
-    const resolvedFont = this.resolvePath(fontPath);
-    const fontBuffer = fs.readFileSync(resolvedFont);
-    this.fontBase64 = fontBuffer.toString('base64');
     
     if (customRects) {
       // Merge custom rectangles with defaults
@@ -100,7 +98,7 @@ export class IDCardGenerator {
     for (const possiblePath of possiblePaths) {
       if (fs.existsSync(possiblePath)) return possiblePath;
     }
-    return possiblePaths[2];
+    return possiblePaths[0];
   }
 
   /**
@@ -109,6 +107,22 @@ export class IDCardGenerator {
   private async loadTemplate(): Promise<void> {
     if (!this.templateBuffer) {
       this.templateBuffer = await sharp(this.templatePath).toBuffer();
+    }
+  }
+
+  /**
+   * Loads the font file and converts it to base64. Called automatically when needed.
+   */
+  private async loadFont(): Promise<void> {
+    if (!this.fontBase64) {
+      try {
+        const resolvedFont = this.resolvePath(this.fontPath);
+        const fontBuffer = fs.readFileSync(resolvedFont);
+        this.fontBase64 = fontBuffer.toString('base64');
+      } catch (error) {
+        console.warn(`Failed to load font from ${this.fontPath}:`, error);
+        this.fontBase64 = ''; // Empty base64, will fallback to non-embedded font
+      }
     }
   }
 
@@ -134,22 +148,25 @@ export class IDCardGenerator {
   private createTextSvg(text: string, rect: { width: number; height: number }, style?: TextStyle): Buffer {
     const mergedStyle = { ...this.defaultTextStyle, ...style };
 
-    const fontFace = `
-      @font-face {
-        font-family: ${this.fontFamily};
-        src: url(data:font/opentype;charset=utf-8;base64,${this.fontBase64}) format('opentype');
-        font-weight: ${mergedStyle.fontWeight};
-        font-style: normal;
-      }
-    `;
+    // Build font-face only if font was loaded
+    const fontFace = this.fontBase64 
+      ? `
+        @font-face {
+          font-family: ${this.fontFamily};
+          src: url(data:font/opentype;charset=utf-8;base64,${this.fontBase64}) format('opentype');
+          font-weight: ${mergedStyle.fontWeight};
+          font-style: normal;
+        }
+      `
+      : '';
 
     const svg = `
       <svg width="${rect.width}" height="${rect.height}" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <style>
-            ${fontFace};
+            ${fontFace}
             .text {
-              font-family: '${this.fontFamily}', sans-serif;
+              font-family: ${this.fontBase64 ? `'${this.fontFamily}', ` : ''}sans-serif;
               font-size: ${mergedStyle.fontSize}px;
               font-weight: ${mergedStyle.fontWeight};
               fill: ${mergedStyle.color};
@@ -209,6 +226,7 @@ export class IDCardGenerator {
    */
   public async generate(options: GenerateOptions): Promise<Buffer> {
     await this.loadTemplate();
+    await this.loadFont();
     const compositeOps: sharp.OverlayOptions[] = [];
 
     // Helper to add a text field
