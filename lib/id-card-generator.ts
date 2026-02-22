@@ -93,9 +93,9 @@ export class IDCardGenerator {
     if (path.isAbsolute(filePath)) return filePath;
 
     const possiblePaths = [
-      path.join(process.cwd(), filePath),
       path.join('/var/task', filePath),
-      path.join('/app', filePath)
+      path.join('/app', filePath),
+      path.join(process.cwd(), filePath)
     ];
     for (const possiblePath of possiblePaths) {
       if (fs.existsSync(possiblePath)) return possiblePath;
