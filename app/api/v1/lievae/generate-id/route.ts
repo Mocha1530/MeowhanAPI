@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IDCardGenerator } from '@/lib/id-card-generator';
 
-const generator = new IDCardGenerator('public/ID_TEMPLATE.jpg');
+const generator = new IDCardGenerator(
+  'public/ID_TEMPLATE.jpg',
+  'public/font/YourFont.otf'
+);
 
 export async function GET(request: NextRequest) {
   try {
