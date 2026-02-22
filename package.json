@@ -37,6 +37,7 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
+    "@resvg/resvg-js": "^2.6.2",
     "@sparticuz/chromium": "^141.0.0",
     "@vercel/analytics": "latest",
     "@vercel/blob": "latest",
