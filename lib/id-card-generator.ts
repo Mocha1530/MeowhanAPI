@@ -74,7 +74,7 @@ export class IDCardGenerator {
   ) {
     // Resolve relative paths against the project root so `public/...` works
     this.templatePath = this.resolvePath(templatePath);
-    this.fontPath = fontPath;
+    this.fontPath = this.resolvePath(fontPath);
     this.fontFamily = 'EmbeddedFont';
     
     if (customRects) {
@@ -106,7 +106,23 @@ export class IDCardGenerator {
    */
   private async loadTemplate(): Promise<void> {
     if (!this.templateBuffer) {
-      this.templateBuffer = await sharp(this.templatePath).toBuffer();
+      let templatePath = this.templatePath;
+      
+      if (!fs.existsSync(templatePath)) {
+        const alternatives = [
+          path.join('/var/task', 'public/ID_TEMPLATE.jpg'),
+          path.join('/app', 'public/ID_TEMPLATE.jpg'),
+          path.join(process.cwd(), 'public/ID_TEMPLATE.jpg'),
+        ];
+        for (const altPath of alternatives) {
+          if (fs.existsSync(altPath)) {
+            templatePath = altPath;
+            break;
+          }
+        }
+      }
+
+      this.templateBuffer = await sharp(templatePath).toBuffer();
     }
   }
 
@@ -115,13 +131,30 @@ export class IDCardGenerator {
    */
   private async loadFont(): Promise<void> {
     if (!this.fontBase64) {
+      let fontPath = this.fontPath;
+
+      // If the path doesn't exist, try alternative locations
+      if (!fs.existsSync(fontPath)) {
+        const alternatives = [
+          path.join('/var/task', 'public/font/BauerBodoniRegular.otf'),
+          path.join('/app', 'public/font/BauerBodoniRegular.otf'),
+          path.join(process.cwd(), 'public/font/BauerBodoniRegular.otf'),
+        ];
+        
+        for (const alt of alternatives) {
+          if (fs.existsSync(alt)) {
+            fontPath = alt;
+            break;
+          }
+        }
+      }
+
       try {
-        const resolvedFont = this.resolvePath(this.fontPath);
-        const fontBuffer = fs.readFileSync(resolvedFont);
+        const fontBuffer = fs.readFileSync(fontPath);
         this.fontBase64 = fontBuffer.toString('base64');
       } catch (error) {
-        console.warn(`Failed to load font from ${this.fontPath}:`, error);
-        this.fontBase64 = ''; // Empty base64, will fallback to non-embedded font
+        console.warn(`Failed to load font from ${fontPath}:`, error);
+        this.fontBase64 = '';
       }
     }
   }
