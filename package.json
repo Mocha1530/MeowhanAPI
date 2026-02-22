@@ -47,12 +47,14 @@
     "cmdk": "latest",
     "date-fns": "4.1.0",
     "embla-carousel-react": "latest",
+    "emoji-regex": "^10.6.0",
     "geist": "latest",
     "input-otp": "latest",
     "lucide-react": "^0.454.0",
     "mongodb": "^5.8.0",
     "next": "15.2.6",
     "next-themes": "latest",
+    "node-emoji": "^2.2.0",
     "probe-image-size": "latest",
     "puppeteer-core": "^24.0.0",
     "react": "^19",
@@ -70,6 +72,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/emoji-regex": "^8.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
