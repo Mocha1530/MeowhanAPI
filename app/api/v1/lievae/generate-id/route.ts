@@ -3,7 +3,9 @@ import { IDCardGenerator } from '@/lib/id-card-generator';
 
 const generator = new IDCardGenerator(
   'public/ID_TEMPLATE.jpg',
-  'public/font/BauerBodoniRegular.otf'
+  'public/font/BauerBodoniRegular.otf',
+  undefined,
+  { fontSize: 78 }
 );
 
 export async function GET(request: NextRequest) {

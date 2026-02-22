@@ -53,9 +53,9 @@ export class IDCardGenerator {
   };
 
   private defaultTextStyle: Required<TextStyle> = {
-    fontSize: 24,
+    fontSize: 36,
     fontFamily: 'EmbeddedFont',
-    color: '#000000',
+    color: '#8bdfea',
     fontWeight: 'bold',
   };
 
@@ -94,13 +94,13 @@ export class IDCardGenerator {
 
     const possiblePaths = [
       path.join(process.cwd(), filePath),
-      path.join('var/task', filePath),
+      path.join('/var/task', filePath),
       path.join('/app', filePath)
     ];
     for (const possiblePath of possiblePaths) {
-      if (fs.existsSync(possiblePath)) return possiblePath
+      if (fs.existsSync(possiblePath)) return possiblePath;
     }
-    return possiblePaths[0];
+    return possiblePaths[2];
   }
 
   /**
