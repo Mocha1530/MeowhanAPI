@@ -1,6 +1,8 @@
 import sharp from 'sharp';
 import { Resvg } from '@resvg/resvg-js';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 export interface Rect {
   left: number;
@@ -66,9 +68,19 @@ export class IDCardGenerator {
     textStyle?: Partial<TextStyle>
   ) {
     // Resolve relative paths against the project root so `public/...` works
-    this.templatePath = path.isAbsolute(templatePath)
-      ? templatePath
-      : path.join(process.cwd(), templatePath);
+    if (path.isAbsolute(templatePath)) {
+      this.templatePath = templatePath;
+    } else {
+      // Try multiple resolution strategies for production environments
+      const possiblePaths = [
+        path.join(process.cwd(), templatePath), // Development
+        path.join('/var/task', templatePath), // AWS Lambda
+        path.join('/app', templatePath), // Vercel/Docker
+      ];
+      
+      this.templatePath = possiblePaths[0]; // Default to process.cwd()
+    }
+    
     if (customRects) {
       // Merge custom rectangles with defaults
       this.defaultRects = { ...this.defaultRects, ...customRects };
@@ -83,7 +95,26 @@ export class IDCardGenerator {
    */
   private async loadTemplate(): Promise<void> {
     if (!this.templateBuffer) {
-      this.templateBuffer = await sharp(this.templatePath).toBuffer();
+      // Try to find the template file in possible locations
+      let templatePath = this.templatePath;
+      
+      // If the path doesn't exist, try alternative locations
+      if (!fs.existsSync(templatePath)) {
+        const alternatives = [
+          path.join('/var/task', 'public/ID_TEMPLATE.jpg'),
+          path.join('/app', 'public/ID_TEMPLATE.jpg'),
+          path.join(process.cwd(), 'public/ID_TEMPLATE.jpg'),
+        ];
+        
+        for (const alt of alternatives) {
+          if (fs.existsSync(alt)) {
+            templatePath = alt;
+            break;
+          }
+        }
+      }
+      
+      this.templateBuffer = await sharp(templatePath).toBuffer();
     }
   }
 
