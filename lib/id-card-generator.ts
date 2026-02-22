@@ -130,6 +130,18 @@ export class IDCardGenerator {
    * Loads the font file and converts it to base64. Called automatically when needed.
    */
   private async loadFont(): Promise<void> {
+    try {
+      const response = await fetch('https://meowhan.vercel.app/font/BauerBodoniRegular.otf');
+      if (response.ok) {
+        const fontBuffer = await response.arrayBuffer();
+        this.fontBase64 = Buffer.from(fontBuffer).toString('base64');
+      }
+      this.fontBase64 = null
+    } catch (error) {
+      console.warn(`Failed to fetch font from ${this.fontPath}:`, error);
+      this.fontBase64 = null;
+    }
+
     if (!this.fontBase64) {
       let fontPath = this.fontPath;
 
@@ -178,20 +190,19 @@ export class IDCardGenerator {
   /**
    * Generates an SVG image for a text string, sized to fit the rectangle.
    */
-  private createTextSvg(text: string, rect: { width: number; height: number }, style?: TextStyle): Buffer {
+  private async createTextSvg(text: string, rect: { width: number; height: number }, style?: TextStyle): Promise<Buffer> {
+    await this.loadFont();
     const mergedStyle = { ...this.defaultTextStyle, ...style };
 
     // Build font-face only if font was loaded
-    const fontFace = this.fontBase64 
-      ? `
+    const fontFace = `
         @font-face {
           font-family: ${this.fontFamily};
           src: url(data:font/opentype;charset=utf-8;base64,${this.fontBase64}) format('opentype');
           font-weight: ${mergedStyle.fontWeight};
           font-style: normal;
         }
-      `
-      : '';
+      `;
 
     const svg = `
       <svg width="${rect.width}" height="${rect.height}" xmlns="http://www.w3.org/2000/svg">
@@ -199,7 +210,7 @@ export class IDCardGenerator {
           <style>
             ${fontFace}
             .text {
-              font-family: ${this.fontBase64 ? `'${this.fontFamily}', ` : ''}sans-serif;
+              font-family: ${this.fontFamily}, sans-serif;
               font-size: ${mergedStyle.fontSize}px;
               font-weight: ${mergedStyle.fontWeight};
               fill: ${mergedStyle.color};
@@ -259,22 +270,23 @@ export class IDCardGenerator {
    */
   public async generate(options: GenerateOptions): Promise<Buffer> {
     await this.loadTemplate();
-    await this.loadFont();
     const compositeOps: sharp.OverlayOptions[] = [];
 
     // Helper to add a text field
-    const addTextField = (text: string | undefined, rectKey: keyof typeof this.defaultRects, style?: TextStyle) => {
+    const addTextField = async (text: string | undefined, rectKey: keyof typeof this.defaultRects, style?: TextStyle) => {
       if (!text) return;
       const rect = this.normalizeRect(this.defaultRects[rectKey]);
-      const svgBuffer = this.createTextSvg(text, rect, style);
+      const svgBuffer = await this.createTextSvg(text, rect, style);
       compositeOps.push({ input: svgBuffer, top: rect.y, left: rect.x });
     };
 
     // Add text fields
-    addTextField(options.name, 'name');
-    addTextField(options.age, 'age');
-    addTextField(options.gender, 'gender');
-    addTextField(options.status, 'status');
+    await Promise.all([
+      addTextField(options.name, 'name'),
+      addTextField(options.age, 'age'),
+      addTextField(options.gender, 'gender'),
+      addTextField(options.status, 'status')
+    ]);
 
     // Add icon if URL provided
     if (options.iconUrl) {
