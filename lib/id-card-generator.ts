@@ -193,7 +193,7 @@ export class IDCardGenerator {
    * Generates an SVG image for a text string, sized to fit the rectangle.
    */
   private async createTextSvg(text: string, rect: { width: number; height: number }, style?: TextStyle): Promise<Buffer> {
-    await this.loadFont();
+    // await this.loadFont();
     const mergedStyle = { ...this.defaultTextStyle, ...style };
 
     // Build font-face only if font was loaded
@@ -208,21 +208,13 @@ export class IDCardGenerator {
 
     const svg = `
       <svg width="${rect.width}" height="${rect.height}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <style>
-            ${fontFace}
-            .text {
-              font-family: ${this.fontFamily}, sans-serif;
-              font-size: ${mergedStyle.fontSize}px;
-              font-weight: ${mergedStyle.fontWeight};
-              fill: ${mergedStyle.color};
-            }
-          </style>
-        </defs>
         <text 
           x="${rect.width / 2}" 
-          y="${rect.height * 0.65}" 
-          class="text"
+          y="${rect.height * 0.65}"
+          font-family="BauerBodoniRegular, serif"
+          font-size="${mergedStyle.fontSize}px"
+          font-weight="${mergedStyle.fontWeight}"
+          fill="${mergedStyle.color}"
           text-anchor="middle"
           dominant-baseline="middle"
         >${this.escapeXml(text)}</text>
