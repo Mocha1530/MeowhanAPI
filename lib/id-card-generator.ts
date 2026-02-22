@@ -52,7 +52,7 @@ export class IDCardGenerator {
 
   private defaultTextStyle: Required<TextStyle> = {
     fontSize: 24,
-    fontFamily: 'Arial, sans-serif',
+    fontFamily: 'sans-serif',
     color: '#000000',
     fontWeight: 'bold',
   };
@@ -141,15 +141,28 @@ export class IDCardGenerator {
     const mergedStyle = { ...this.defaultTextStyle, ...style };
     const svg = `
       <svg width="${rect.width}" height="${rect.height}" xmlns="http://www.w3.org/2000/svg">
-        <style>
-          .text {
-            font-family: ${mergedStyle.fontFamily};
-            font-size: ${mergedStyle.fontSize}px;
-            font-weight: ${mergedStyle.fontWeight};
-            fill: ${mergedStyle.color};
-          }
-        </style>
-        <text x="0" y="${rect.height * 0.7}" class="text">${this.escapeXml(text)}</text>
+        <defs>
+          <style>
+            @font-face {
+              font-family: 'sans-serif';
+              font-weight: normal;
+            }
+            @font-face {
+              font-family: 'sans-serif';
+              font-weight: bold;
+            }
+          </style>
+        </defs>
+        <text 
+          x="${rect.width / 2}" 
+          y="${rect.height * 0.65}" 
+          font-family="sans-serif"
+          font-size="${mergedStyle.fontSize}px"
+          font-weight="${mergedStyle.fontWeight}"
+          fill="${mergedStyle.color}"
+          text-anchor="middle"
+          dominant-baseline="middle"
+        >${this.escapeXml(text)}</text>
       </svg>
     `;
     return Buffer.from(svg);
