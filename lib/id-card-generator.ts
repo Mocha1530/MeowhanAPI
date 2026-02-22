@@ -130,16 +130,18 @@ export class IDCardGenerator {
    * Loads the font file and converts it to base64. Called automatically when needed.
    */
   private async loadFont(): Promise<void> {
+    if (this.fontBase64) return;
+
     try {
       const response = await fetch('https://meowhan.vercel.app/font/BauerBodoniRegular.otf');
-      if (response.ok) {
-        const fontBuffer = await response.arrayBuffer();
-        this.fontBase64 = Buffer.from(fontBuffer).toString('base64');
-      }
-      this.fontBase64 = null
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+      const fontBuffer = await response.arrayBuffer();
+      this.fontBase64 = Buffer.from(fontBuffer).toString('base64');
+
+      return;
     } catch (error) {
       console.warn(`Failed to fetch font from ${this.fontPath}:`, error);
-      this.fontBase64 = null;
     }
 
     if (!this.fontBase64) {
@@ -195,14 +197,14 @@ export class IDCardGenerator {
     const mergedStyle = { ...this.defaultTextStyle, ...style };
 
     // Build font-face only if font was loaded
-    const fontFace = `
+    const fontFace = this.fontBase64 ?`
         @font-face {
           font-family: ${this.fontFamily};
           src: url(data:font/opentype;charset=utf-8;base64,${this.fontBase64}) format('opentype');
           font-weight: ${mergedStyle.fontWeight};
           font-style: normal;
         }
-      `;
+      ` : '';
 
     const svg = `
       <svg width="${rect.width}" height="${rect.height}" xmlns="http://www.w3.org/2000/svg">
