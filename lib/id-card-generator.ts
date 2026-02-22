@@ -40,6 +40,8 @@ export interface GenerateOptions {
 export class IDCardGenerator {
   private templateBuffer: Buffer | null = null;
   private templatePath: string;
+  private fontBase64: string | null = null;
+  private fontFamily: string;
 
   // Predefined rectangles
   private readonly defaultRects = {
@@ -52,34 +54,30 @@ export class IDCardGenerator {
 
   private defaultTextStyle: Required<TextStyle> = {
     fontSize: 24,
-    fontFamily: 'sans-serif',
+    fontFamily: 'EmbeddedFont',
     color: '#000000',
     fontWeight: 'bold',
   };
 
   /**
    * @param templatePath - Path to the template image (e.g., 'public/id-template.png')
+   * @param fontPath - Path to an .otf font file
    * @param customRects - Optional custom rectangles (if not provided, defaults are used)
    * @param textStyle - Optional default text style
    */
   constructor(
     templatePath: string,
+    fontPath: string,
     customRects?: Partial<typeof this.defaultRects>,
     textStyle?: Partial<TextStyle>
   ) {
     // Resolve relative paths against the project root so `public/...` works
-    if (path.isAbsolute(templatePath)) {
-      this.templatePath = templatePath;
-    } else {
-      // Try multiple resolution strategies for production environments
-      const possiblePaths = [
-        path.join(process.cwd(), templatePath), // Development
-        path.join('/var/task', templatePath), // AWS Lambda
-        path.join('/app', templatePath), // Vercel/Docker
-      ];
-      
-      this.templatePath = possiblePaths[0]; // Default to process.cwd()
-    }
+    this.templatePath = this.resolvePath(templatePath);
+    this.fontFamily = 'EmbeddedFont';
+
+    const resolvedFont = this.resolvePath(fontPath);
+    const fontBuffer = fs.readFileSync(resolvedFont);
+    this.fontBase64 = fontBuffer.toString('base64');
     
     if (customRects) {
       // Merge custom rectangles with defaults
@@ -88,6 +86,21 @@ export class IDCardGenerator {
     if (textStyle) {
       this.defaultTextStyle = { ...this.defaultTextStyle, ...textStyle };
     }
+    this.defaultTextStyle.fontFamily = this.fontFamily;
+  }
+
+  private resolvePath(filePath: string): string {
+    if (path.isAbsolute(filePath)) return filePath;
+
+    const possiblePaths = [
+      path.join(process.cwd(), filePath),
+      path.join('var/task', filePath),
+      path.join('/app', filePath)
+    ];
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) return possiblePath
+    }
+    return possiblePaths[0];
   }
 
   /**
@@ -95,26 +108,7 @@ export class IDCardGenerator {
    */
   private async loadTemplate(): Promise<void> {
     if (!this.templateBuffer) {
-      // Try to find the template file in possible locations
-      let templatePath = this.templatePath;
-      
-      // If the path doesn't exist, try alternative locations
-      if (!fs.existsSync(templatePath)) {
-        const alternatives = [
-          path.join('/var/task', 'public/ID_TEMPLATE.jpg'),
-          path.join('/app', 'public/ID_TEMPLATE.jpg'),
-          path.join(process.cwd(), 'public/ID_TEMPLATE.jpg'),
-        ];
-        
-        for (const alt of alternatives) {
-          if (fs.existsSync(alt)) {
-            templatePath = alt;
-            break;
-          }
-        }
-      }
-      
-      this.templateBuffer = await sharp(templatePath).toBuffer();
+      this.templateBuffer = await sharp(this.templatePath).toBuffer();
     }
   }
 
@@ -139,27 +133,33 @@ export class IDCardGenerator {
    */
   private createTextSvg(text: string, rect: { width: number; height: number }, style?: TextStyle): Buffer {
     const mergedStyle = { ...this.defaultTextStyle, ...style };
+
+    const fontFace = `
+      @font-face {
+        font-family: ${this.fontFamily};
+        src: url(data:font/opentype;charset=utf-8;base64,${this.fontBase64}) format('opentype');
+        font-weight: ${mergedStyle.fontWeight};
+        font-style: normal;
+      }
+    `;
+
     const svg = `
       <svg width="${rect.width}" height="${rect.height}" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <style>
-            @font-face {
-              font-family: 'sans-serif';
-              font-weight: normal;
-            }
-            @font-face {
-              font-family: 'sans-serif';
-              font-weight: bold;
+            ${fontFace};
+            .text {
+              font-family: '${this.fontFamily}', sans-serif;
+              font-size: ${mergedStyle.fontSize}px;
+              font-weight: ${mergedStyle.fontWeight};
+              fill: ${mergedStyle.color};
             }
           </style>
         </defs>
         <text 
           x="${rect.width / 2}" 
           y="${rect.height * 0.65}" 
-          font-family="sans-serif"
-          font-size="${mergedStyle.fontSize}px"
-          font-weight="${mergedStyle.fontWeight}"
-          fill="${mergedStyle.color}"
+          class="text"
           text-anchor="middle"
           dominant-baseline="middle"
         >${this.escapeXml(text)}</text>
