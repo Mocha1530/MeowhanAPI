@@ -38,11 +38,7 @@ export async function GET(
       const statusCode = imageResponse?.status || 404;
       
       return new NextResponse(errorMessage, { 
-        status: statusCode,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        }
+        status: statusCode
       });
     }
 
@@ -53,24 +49,16 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Cache-Control': 'public, max-age=86400',
       },
     });
   } catch (error) {
-    return new NextResponse('Internal Server Error', { status: 500, headers: { 'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS' } });
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
 export async function OPTIONS() {
   return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
+    status: 200
   });
 }

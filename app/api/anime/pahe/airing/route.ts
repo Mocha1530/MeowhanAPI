@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
         current_page: data.current_page,
         last_page: data.last_page
       }      
-    }, { headers: corsHeaders });
+    });
     
   } catch (error) {
     console.error('Airing proxy API error:', error);
@@ -123,14 +123,13 @@ export async function GET(request: NextRequest) {
         error: 'Failed to fetch airing data',
         details: error instanceof Error ? error.message : 'Unknown error'
       }, 
-      { status: 502, headers: corsHeaders }
+      { status: 502 }
     );
   }
 }
 
 export async function OPTIONS() {
   return new NextResponse(null, {
-    status: 200,
-    headers: corsHeaders,
+    status: 200
   });
 }

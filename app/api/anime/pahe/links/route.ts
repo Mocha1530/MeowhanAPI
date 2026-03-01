@@ -29,23 +29,23 @@ export async function GET(request: NextRequest) {
         const pageNum = page ? parseInt(page) : 1;
         if (isNaN(pageNum) || pageNum < 1) throw new Error('Invalid page number');
         const animeData = await getAnime(session, pageNum);
-        return NextResponse.json(animeData, { headers: CORS_HEADERS });
+        return NextResponse.json(animeData);
         
       case 'info':
         if (!malId) throw new Error('mal_id parameter required');
         const animeInfo = await getAnimeInfo(malId, db);
-        return NextResponse.json(animeInfo, { headers: CORS_HEADERS });
+        return NextResponse.json(animeInfo);
         
       case 'mal_id':
         if (!session) throw new Error('Session parameter required');
         if (advanced === 'true') {
           const basicInfo = await getBasicAnimeInfo(session);
           if (!basicInfo) throw new Error('Could not fetch basic anime info');
-          return NextResponse.json(basicInfo, { headers: CORS_HEADERS });
+          return NextResponse.json(basicInfo);
         }
         const mal_id = await getPaheMalId(session);
         if (!mal_id) throw new Error('MAL ID not found for this session');
-        return NextResponse.json({ session, mal_id }, { headers: CORS_HEADERS });
+        return NextResponse.json({ session, mal_id });
         
       case 'episode_data':
         if (!animeSession || !episodeSession || !episodeNumber) {
@@ -53,10 +53,10 @@ export async function GET(request: NextRequest) {
         }
         const episode = { episode_session: episodeSession, episode_number: parseInt(episodeNumber) };
         const episodeData = await getEpisodeData(animeSession, episode, db);
-        return NextResponse.json(episodeData, { headers: CORS_HEADERS });
+        return NextResponse.json(episodeData);
         
       default:
-        return NextResponse.json({ error: 'Invalid method' }, { status: 400, headers: CORS_HEADERS });
+        return NextResponse.json({ error: 'Invalid method' }, { status: 400 });
     }
   } catch (error) {
     console.error('API error:', error);
@@ -65,14 +65,13 @@ export async function GET(request: NextRequest) {
         error: 'Failed to process request',
         details: error instanceof Error ? error.message : 'Unknown error'
       }, 
-      { status: 500, headers: CORS_HEADERS }
+      { status: 500 }
     );
   }
 }
 
 export async function OPTIONS() {
   return new NextResponse(null, {
-    status: 200,
-    headers: CORS_HEADERS,
+    status: 200
   });
 }
