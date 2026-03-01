@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const ALLOWED_ORIGINS = [
-  'https://www.meowani.vercel.app',
-  'https://www.meowani.site'
+  'https://meowani.vercel.app',
+  'https://www.meowani.site',
+  'https://meowani.site'
 ]
 
 export function middleware(request: NextRequest) {
